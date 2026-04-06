@@ -1,0 +1,280 @@
+{
+  "dataset_path": "data/ml_features.csv",
+  "row_count": 636,
+  "train_rows": 508,
+  "test_rows": 128,
+  "horizons": {
+    "target_up_1h": {
+      "target": "target_up_1h",
+      "best_model_name": "random_forest",
+      "artifact_path": "models/target_up_1h_model.joblib",
+      "feature_columns": [
+        "news_score",
+        "technical_score",
+        "final_rule_score",
+        "ema_trend_1h",
+        "ema_trend_4h",
+        "rsi_1h",
+        "rsi_4h",
+        "bollinger_position_1h",
+        "bollinger_position_4h",
+        "bollinger_width_1h",
+        "bollinger_width_4h",
+        "macd_score_1h",
+        "macd_score_4h",
+        "return_1h",
+        "return_4h",
+        "volume_change_1h",
+        "volume_change_4h",
+        "price_close"
+      ],
+      "metrics_by_model": {
+        "logistic_regression": {
+          "roc_auc": 0.46887254901960784,
+          "accuracy": 0.4765625,
+          "precision": 0.40540540540540543,
+          "recall": 0.25,
+          "f1": 0.30927835051546393,
+          "positive_rate_predicted": 0.2890625,
+          "positive_rate_actual": 0.46875
+        },
+        "random_forest": {
+          "roc_auc": 0.4769607843137255,
+          "accuracy": 0.4765625,
+          "precision": 0.425531914893617,
+          "recall": 0.3333333333333333,
+          "f1": 0.37383177570093457,
+          "positive_rate_predicted": 0.3671875,
+          "positive_rate_actual": 0.46875
+        },
+        "xgboost": {
+          "roc_auc": 0.46740196078431373,
+          "accuracy": 0.5078125,
+          "precision": 0.4745762711864407,
+          "recall": 0.4666666666666667,
+          "f1": 0.47058823529411764,
+          "positive_rate_predicted": 0.4609375,
+          "positive_rate_actual": 0.46875
+        }
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.5061728395061729,
+          "recall": 0.6029411764705882,
+          "f1-score": 0.5503355704697986,
+          "support": 68.0
+        },
+        "1": {
+          "precision": 0.425531914893617,
+          "recall": 0.3333333333333333,
+          "f1-score": 0.37383177570093457,
+          "support": 60.0
+        },
+        "accuracy": 0.4765625,
+        "macro avg": {
+          "precision": 0.4658523771998949,
+          "recall": 0.4681372549019608,
+          "f1-score": 0.4620836730853666,
+          "support": 128.0
+        },
+        "weighted avg": {
+          "precision": 0.4683724060940373,
+          "recall": 0.4765625,
+          "f1-score": 0.4675994166718936,
+          "support": 128.0
+        }
+      },
+      "test_rows": 128,
+      "trained_at": "2026-04-06T08:40:18+00:00"
+    },
+    "target_up_12h": {
+      "target": "target_up_12h",
+      "best_model_name": "xgboost",
+      "artifact_path": "models/target_up_12h_model.joblib",
+      "feature_columns": [
+        "news_score",
+        "technical_score",
+        "final_rule_score",
+        "ema_trend_1h",
+        "ema_trend_4h",
+        "rsi_1h",
+        "rsi_4h",
+        "bollinger_position_1h",
+        "bollinger_position_4h",
+        "bollinger_width_1h",
+        "bollinger_width_4h",
+        "macd_score_1h",
+        "macd_score_4h",
+        "return_1h",
+        "return_4h",
+        "volume_change_1h",
+        "volume_change_4h",
+        "price_close"
+      ],
+      "metrics_by_model": {
+        "logistic_regression": {
+          "roc_auc": 0.5250398724082935,
+          "accuracy": 0.4921875,
+          "precision": 0.2647058823529412,
+          "recall": 0.5454545454545454,
+          "f1": 0.3564356435643564,
+          "positive_rate_predicted": 0.53125,
+          "positive_rate_actual": 0.2578125
+        },
+        "random_forest": {
+          "roc_auc": 0.5668261562998405,
+          "accuracy": 0.7421875,
+          "precision": 0.5,
+          "recall": 0.24242424242424243,
+          "f1": 0.32653061224489793,
+          "positive_rate_predicted": 0.125,
+          "positive_rate_actual": 0.2578125
+        },
+        "xgboost": {
+          "roc_auc": 0.6108452950558214,
+          "accuracy": 0.7578125,
+          "precision": 0.5454545454545454,
+          "recall": 0.36363636363636365,
+          "f1": 0.43636363636363634,
+          "positive_rate_predicted": 0.171875,
+          "positive_rate_actual": 0.2578125
+        }
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.8018867924528302,
+          "recall": 0.8947368421052632,
+          "f1-score": 0.845771144278607,
+          "support": 95.0
+        },
+        "1": {
+          "precision": 0.5454545454545454,
+          "recall": 0.36363636363636365,
+          "f1-score": 0.43636363636363634,
+          "support": 33.0
+        },
+        "accuracy": 0.7578125,
+        "macro avg": {
+          "precision": 0.6736706689536878,
+          "recall": 0.6291866028708134,
+          "f1-score": 0.6410673903211217,
+          "support": 128.0
+        },
+        "weighted avg": {
+          "precision": 0.7357753537735849,
+          "recall": 0.7578125,
+          "f1-score": 0.7402207711442785,
+          "support": 128.0
+        }
+      },
+      "test_rows": 128,
+      "trained_at": "2026-04-06T08:40:18+00:00"
+    },
+    "target_up_24h": {
+      "target": "target_up_24h",
+      "best_model_name": "logistic_regression",
+      "artifact_path": "models/target_up_24h_model.joblib",
+      "feature_columns": [
+        "news_score",
+        "technical_score",
+        "final_rule_score",
+        "ema_trend_1h",
+        "ema_trend_4h",
+        "rsi_1h",
+        "rsi_4h",
+        "bollinger_position_1h",
+        "bollinger_position_4h",
+        "bollinger_width_1h",
+        "bollinger_width_4h",
+        "macd_score_1h",
+        "macd_score_4h",
+        "return_1h",
+        "return_4h",
+        "volume_change_1h",
+        "volume_change_4h",
+        "price_close"
+      ],
+      "metrics_by_model": {
+        "logistic_regression": {
+          "roc_auc": 0.7986479961371318,
+          "accuracy": 0.4453125,
+          "precision": 0.19767441860465115,
+          "recall": 0.8947368421052632,
+          "f1": 0.3238095238095238,
+          "positive_rate_predicted": 0.671875,
+          "positive_rate_actual": 0.1484375
+        },
+        "random_forest": {
+          "roc_auc": 0.7281506518590052,
+          "accuracy": 0.609375,
+          "precision": 0.23728813559322035,
+          "recall": 0.7368421052631579,
+          "f1": 0.358974358974359,
+          "positive_rate_predicted": 0.4609375,
+          "positive_rate_actual": 0.1484375
+        },
+        "xgboost": {
+          "roc_auc": 0.7556735876388218,
+          "accuracy": 0.6953125,
+          "precision": 0.2826086956521739,
+          "recall": 0.6842105263157895,
+          "f1": 0.4,
+          "positive_rate_predicted": 0.359375,
+          "positive_rate_actual": 0.1484375
+        }
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.9523809523809523,
+          "recall": 0.3669724770642202,
+          "f1-score": 0.5298013245033113,
+          "support": 109.0
+        },
+        "1": {
+          "precision": 0.19767441860465115,
+          "recall": 0.8947368421052632,
+          "f1-score": 0.3238095238095238,
+          "support": 19.0
+        },
+        "accuracy": 0.4453125,
+        "macro avg": {
+          "precision": 0.5750276854928017,
+          "recall": 0.6308546595847417,
+          "f1-score": 0.42680542415641753,
+          "support": 128.0
+        },
+        "weighted avg": {
+          "precision": 0.8403542012735327,
+          "recall": 0.4453125,
+          "f1-score": 0.49922441658782724,
+          "support": 128.0
+        }
+      },
+      "test_rows": 128,
+      "trained_at": "2026-04-06T08:40:19+00:00"
+    }
+  },
+  "feature_version": "1.0",
+  "feature_columns": [
+    "news_score",
+    "technical_score",
+    "final_rule_score",
+    "ema_trend_1h",
+    "ema_trend_4h",
+    "rsi_1h",
+    "rsi_4h",
+    "bollinger_position_1h",
+    "bollinger_position_4h",
+    "bollinger_width_1h",
+    "bollinger_width_4h",
+    "macd_score_1h",
+    "macd_score_4h",
+    "return_1h",
+    "return_4h",
+    "volume_change_1h",
+    "volume_change_4h",
+    "price_close"
+  ],
+  "trained_at": "2026-04-06T08:40:17+00:00",
+  "has_xgboost": true
+}

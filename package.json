@@ -1,0 +1,9 @@
+{
+  "name": "btc-ai-paper-trading",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm install --prefix web",
+    "dev": "npm run dev --prefix web",
+    "dev:web": "npm run dev:web --prefix web"
+  }
+}
