@@ -68,9 +68,24 @@ CREATE TABLE IF NOT EXISTS paper_trades (
     FOREIGN KEY(signal_id) REFERENCES signals(id)
 );
 
+-- Cached per-bar reconstructed signals for backtesting (idempotent upsert by timeframe+ts).
+CREATE TABLE IF NOT EXISTS signal_bars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timeframe TEXT NOT NULL,
+    ts INTEGER NOT NULL,
+    news_score REAL NOT NULL,
+    technical_score REAL NOT NULL,
+    ml_score REAL NOT NULL,
+    final_score REAL NOT NULL,
+    source TEXT NOT NULL,
+    computed_at TEXT NOT NULL,
+    UNIQUE(timeframe, ts)
+);
+
 CREATE INDEX IF NOT EXISTS idx_candles_tf_ts ON candles(timeframe, ts);
 CREATE INDEX IF NOT EXISTS idx_signals_run_at ON signals(run_at);
 CREATE INDEX IF NOT EXISTS idx_trades_status ON paper_trades(status);
+CREATE INDEX IF NOT EXISTS idx_signal_bars_tf_ts ON signal_bars(timeframe, ts);
 """
 
 
@@ -159,6 +174,74 @@ def replace_candles(
         [(timeframe, ts, o, h, l, c, v) for ts, o, h, l, c, v in rows],
     )
     conn.commit()
+
+
+def upsert_candles(
+    conn: sqlite3.Connection,
+    timeframe: str,
+    rows: Iterable[tuple[int, float, float, float, float, Optional[float]]],
+) -> int:
+    """
+    Idempotent candle ingest: insert or update rows keyed by (timeframe, ts).
+    Returns number of processed rows (not SQLite 'changes').
+    """
+    cur = conn.executemany(
+        """
+        INSERT INTO candles (timeframe, ts, open, high, low, close, volume)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(timeframe, ts) DO UPDATE SET
+            open=excluded.open,
+            high=excluded.high,
+            low=excluded.low,
+            close=excluded.close,
+            volume=excluded.volume
+        """,
+        [(timeframe, ts, o, h, l, c, v) for ts, o, h, l, c, v in rows],
+    )
+    conn.commit()
+    return cur.rowcount if cur.rowcount is not None else 0
+
+
+def upsert_signal_bars(
+    conn: sqlite3.Connection,
+    *,
+    timeframe: str,
+    rows: Iterable[tuple[int, float, float, float, float, str, str]],
+) -> int:
+    """
+    Upsert reconstructed signal bars keyed by (timeframe, ts).
+    Row tuple: (ts, news_score, technical_score, ml_score, final_score, source, computed_at_iso)
+    """
+    cur = conn.executemany(
+        """
+        INSERT INTO signal_bars (
+            timeframe, ts, news_score, technical_score, ml_score, final_score, source, computed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(timeframe, ts) DO UPDATE SET
+            news_score=excluded.news_score,
+            technical_score=excluded.technical_score,
+            ml_score=excluded.ml_score,
+            final_score=excluded.final_score,
+            source=excluded.source,
+            computed_at=excluded.computed_at
+        """,
+        [(timeframe, ts, ns, tsig, ms, fs, src, ca) for ts, ns, tsig, ms, fs, src, ca in rows],
+    )
+    conn.commit()
+    return cur.rowcount if cur.rowcount is not None else 0
+
+
+def fetch_signal_bars_all(conn: sqlite3.Connection, *, timeframe: str) -> list[sqlite3.Row]:
+    cur = conn.execute(
+        """
+        SELECT ts, news_score, technical_score, ml_score, final_score, source, computed_at
+        FROM signal_bars
+        WHERE timeframe = ?
+        ORDER BY ts ASC
+        """,
+        (timeframe,),
+    )
+    return list(cur.fetchall())
 
 
 def insert_signal(

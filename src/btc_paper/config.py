@@ -48,6 +48,19 @@ class Settings(BaseSettings):
     technical_tf_1h_weight: float = 0.4
     technical_tf_4h_weight: float = 0.6
 
+    # -----------------------------
+    # Backtesting (quant evaluation)
+    # -----------------------------
+    backtest_buy_threshold: float = Field(default=0.08, validation_alias="BACKTEST_BUY_THRESHOLD")
+    backtest_sell_threshold: float = Field(default=-0.08, validation_alias="BACKTEST_SELL_THRESHOLD")
+    backtest_fee_bps: float = Field(default=0.0, ge=0, validation_alias="BACKTEST_FEE_BPS")
+    backtest_slippage_bps: float = Field(default=0.0, ge=0, validation_alias="BACKTEST_SLIPPAGE_BPS")
+    backtest_sizing_mode: str = Field(default="confidence", validation_alias="BACKTEST_SIZING_MODE")
+    backtest_vol_window: int = Field(default=72, ge=2, validation_alias="BACKTEST_VOL_WINDOW")
+    backtest_max_position_size: float = Field(default=1.0, ge=0, validation_alias="BACKTEST_MAX_POSITION_SIZE")
+    backtest_target_volatility: float = Field(default=0.20, ge=0, validation_alias="BACKTEST_TARGET_VOLATILITY")
+    backtest_initial_capital: float = Field(default=10_000.0, gt=0, validation_alias="BACKTEST_INITIAL_CAPITAL")
+
     take_profit_pct: float = 2.0
     stop_loss_pct: float = 1.5
     max_hold_hours: int = 24

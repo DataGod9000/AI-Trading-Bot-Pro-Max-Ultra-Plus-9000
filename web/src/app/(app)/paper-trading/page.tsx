@@ -93,9 +93,9 @@ export default function PaperTradingPage() {
       <div className="mb-6 rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Paper trading — BTC/USD</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Simulated book in SQLite. Fills use the reference price below. TP/SL/max-hold match config — use{" "}
-          <strong>Check TP/SL</strong> or <code className="rounded bg-muted px-1">btc-paper-run</code>. Not a real
-          exchange.
+          A simulated position book stored in SQLite. Orders fill using the reference price below. TP, SL, and max-hold
+          come from your settings; use <strong>Check TP/SL</strong> or{" "}
+          <code className="rounded bg-muted px-1">btc-paper-run</code>. This is not a real exchange.
         </p>
       </div>
 

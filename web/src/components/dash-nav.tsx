@@ -6,11 +6,12 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "Overview" },
   { href: "/news", label: "News sentiment" },
-  { href: "/technical", label: "Technical" },
+  { href: "/ml", label: "Machine Learning" },
+  { href: "/technical", label: "Techincal Analyst" },
+  { href: "/backtesting", label: "Backtesting" },
   { href: "/paper-trading", label: "Paper trading" },
   { href: "/trades", label: "Trade history" },
   { href: "/analysis", label: "Market analysis" },
-  { href: "/ml", label: "Machine Learning" },
 ];
 
 export function DashNav() {

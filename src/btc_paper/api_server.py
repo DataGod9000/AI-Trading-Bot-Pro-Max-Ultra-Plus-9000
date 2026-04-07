@@ -20,6 +20,9 @@ from btc_paper.paper_trader import manual_order, try_rule_based_exit
 from btc_paper.technical.coingecko import fetch_spot_price_usd
 from btc_paper.technical.indicators import TimeframeAnalysis
 from btc_paper.technical.live_analysis import compute_live_technical_with_dataframes
+from btc_paper.backtest.dataset import generate_backtest_dataset
+from btc_paper.backtest.engine import run_backtest
+from btc_paper.backtest.schemas import BacktestParams
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
@@ -117,6 +120,17 @@ def _public_settings(settings: Settings) -> Dict[str, Any]:
         "ml_horizon_weight_12h": settings.ml_horizon_weight_12h,
         "ml_horizon_weight_24h": settings.ml_horizon_weight_24h,
         "models_dir": str(settings.models_dir),
+        "backtest_defaults": {
+            "buy_threshold": settings.backtest_buy_threshold,
+            "sell_threshold": settings.backtest_sell_threshold,
+            "fee_bps": settings.backtest_fee_bps,
+            "slippage_bps": settings.backtest_slippage_bps,
+            "sizing_mode": settings.backtest_sizing_mode,
+            "vol_window": settings.backtest_vol_window,
+            "max_position_size": settings.backtest_max_position_size,
+            "target_volatility": settings.backtest_target_volatility,
+            "initial_capital": settings.backtest_initial_capital,
+        },
     }
 
 
@@ -475,6 +489,261 @@ def market_analysis(
         "candles_1h": [_row_to_dict(r) for r in c_1h],
         "candles_4h": [_row_to_dict(r) for r in c_4h],
         "news": [_row_to_dict(r) for r in news_rows],
+    }
+
+
+@app.get("/api/backtest/run")
+def backtest_run(
+    sizing_mode: str = Query("confidence"),
+    buy_threshold: float = Query(0.08),
+    sell_threshold: float = Query(-0.08),
+    fee_bps: float = Query(0.0, ge=0),
+    slippage_bps: float = Query(0.0, ge=0),
+    vol_window: int = Query(72, ge=2, le=2000),
+    max_position_size: float = Query(1.0, ge=0, le=5),
+    target_volatility: float = Query(0.20, ge=0, le=5),
+    initial_capital: float = Query(10_000.0, gt=0),
+    reconstruct_signal: bool = Query(False),
+    news_lookback_hours: int = Query(24, ge=1, le=240),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+) -> dict[str, Any]:
+    """
+    Run a default quant-style backtest on historical bars using stored `final_score`.
+    Signal at bar t -> executed position at bar t+1 (no lookahead).
+    """
+    settings = load_settings()
+    params = BacktestParams(
+        sizing_mode=sizing_mode,  # validated inside sizing module
+        buy_threshold=buy_threshold,
+        sell_threshold=sell_threshold,
+        fee_bps=fee_bps,
+        slippage_bps=slippage_bps,
+        vol_window=vol_window,
+        max_position_size=max_position_size,
+        target_volatility=target_volatility,
+        initial_capital=initial_capital,
+        start_iso=start_date,
+        end_iso=end_date,
+    )
+    ds = generate_backtest_dataset(
+        settings,
+        start_iso=start_date,
+        end_iso=end_date,
+        reconstruct_signal=reconstruct_signal,
+        news_lookback_hours=news_lookback_hours,
+    )
+    res = run_backtest(ds.df, params)
+    score_curve: list[dict[str, Any]] = []
+    if ds.df is not None and len(ds.df) > 0 and "timestamp" in ds.df.columns and "final_score" in ds.df.columns:
+        for _ts, _s in zip(ds.df["timestamp"].tolist(), ds.df["final_score"].astype(float).tolist()):
+            ts_str = _ts.isoformat() if hasattr(_ts, "isoformat") else str(_ts)
+            score_curve.append({"ts": ts_str, "final_score": float(_s)})
+    return {
+        "summary": res.summary.__dict__,
+        "equity_curve": res.equity_curve,
+        "drawdown_curve": res.drawdown_curve,
+        "benchmark_curve": res.benchmark_curve,
+        "exposure_curve": res.exposure_curve,
+        "score_curve": score_curve,
+        "trades": res.trades,
+        "params": res.params,
+        "dataset_source": ds.source,
+        "bars": len(ds.df),
+    }
+
+
+@app.get("/api/backtest/trades")
+def backtest_trades(
+    sizing_mode: str = Query("confidence"),
+    buy_threshold: float = Query(0.08),
+    sell_threshold: float = Query(-0.08),
+    fee_bps: float = Query(0.0, ge=0),
+    slippage_bps: float = Query(0.0, ge=0),
+    vol_window: int = Query(72, ge=2, le=2000),
+    max_position_size: float = Query(1.0, ge=0, le=5),
+    target_volatility: float = Query(0.20, ge=0, le=5),
+    initial_capital: float = Query(10_000.0, gt=0),
+    reconstruct_signal: bool = Query(False),
+    news_lookback_hours: int = Query(24, ge=1, le=240),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+) -> dict[str, Any]:
+    settings = load_settings()
+    params = BacktestParams(
+        sizing_mode=sizing_mode,
+        buy_threshold=buy_threshold,
+        sell_threshold=sell_threshold,
+        fee_bps=fee_bps,
+        slippage_bps=slippage_bps,
+        vol_window=vol_window,
+        max_position_size=max_position_size,
+        target_volatility=target_volatility,
+        initial_capital=initial_capital,
+        start_iso=start_date,
+        end_iso=end_date,
+    )
+    ds = generate_backtest_dataset(
+        settings,
+        start_iso=start_date,
+        end_iso=end_date,
+        reconstruct_signal=reconstruct_signal,
+        news_lookback_hours=news_lookback_hours,
+    )
+    res = run_backtest(ds.df, params)
+    return {"trades": res.trades, "params": res.params, "bars": len(ds.df)}
+
+
+@app.get("/api/backtest/compare")
+def backtest_compare(
+    buy_threshold: float = Query(0.35),
+    sell_threshold: float = Query(-0.35),
+    fee_bps: float = Query(0.0, ge=0),
+    slippage_bps: float = Query(0.0, ge=0),
+    vol_window: int = Query(72, ge=2, le=2000),
+    max_position_size: float = Query(1.0, ge=0, le=5),
+    target_volatility: float = Query(0.20, ge=0, le=5),
+    initial_capital: float = Query(10_000.0, gt=0),
+    reconstruct_signal: bool = Query(False),
+    news_lookback_hours: int = Query(24, ge=1, le=240),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+) -> dict[str, Any]:
+    """
+    Compare sizing modes side by side (fixed vs confidence vs vol-adjusted).
+    """
+    settings = load_settings()
+    ds = generate_backtest_dataset(
+        settings,
+        start_iso=start_date,
+        end_iso=end_date,
+        reconstruct_signal=reconstruct_signal,
+        news_lookback_hours=news_lookback_hours,
+    )
+    modes = ["fixed", "confidence", "confidence_vol"]
+    results: list[dict[str, Any]] = []
+    curves: dict[str, Any] = {}
+    for m in modes:
+        params = BacktestParams(
+            sizing_mode=m,
+            buy_threshold=buy_threshold,
+            sell_threshold=sell_threshold,
+            fee_bps=fee_bps,
+            slippage_bps=slippage_bps,
+            vol_window=vol_window,
+            max_position_size=max_position_size,
+            target_volatility=target_volatility,
+            initial_capital=initial_capital,
+            start_iso=start_date,
+            end_iso=end_date,
+        )
+        res = run_backtest(ds.df, params)
+        results.append({"sizing_mode": m, **res.summary.__dict__})
+        curves[m] = res.equity_curve
+    return {
+        "metrics": results,
+        "equity_curves": curves,
+        "benchmark_curve": run_backtest(ds.df, BacktestParams(initial_capital=initial_capital)).benchmark_curve,
+        "bars": len(ds.df),
+        "dataset_source": ds.source,
+    }
+
+
+@app.get("/api/backtest/walkforward")
+def backtest_walkforward(
+    train_bars: int = Query(24 * 30, ge=24 * 7, le=24 * 365),
+    test_bars: int = Query(24 * 7, ge=24, le=24 * 90),
+    step_bars: int = Query(24 * 7, ge=24, le=24 * 90),
+    sizing_mode: str = Query("fixed"),
+    buy_threshold: float = Query(0.35),
+    sell_threshold: float = Query(-0.35),
+    fee_bps: float = Query(0.0, ge=0),
+    slippage_bps: float = Query(0.0, ge=0),
+    vol_window: int = Query(72, ge=2, le=2000),
+    max_position_size: float = Query(1.0, ge=0, le=5),
+    target_volatility: float = Query(0.20, ge=0, le=5),
+    initial_capital: float = Query(10_000.0, gt=0),
+    reconstruct_signal: bool = Query(False),
+    news_lookback_hours: int = Query(24, ge=1, le=240),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+) -> dict[str, Any]:
+    """
+    Walk-forward evaluation on historical `final_score` without retraining models (first pass).
+
+    For each window:
+    - Use the next `test_bars` as out-of-sample evaluation segment.
+    - Concatenate OOS segments into one continuous curve.
+    """
+    settings = load_settings()
+    ds = generate_backtest_dataset(
+        settings,
+        start_iso=start_date,
+        end_iso=end_date,
+        reconstruct_signal=reconstruct_signal,
+        news_lookback_hours=news_lookback_hours,
+    )
+    df = ds.df
+    if df is None or len(df) == 0:
+        return {"summary": None, "equity_curve": [], "windows": [], "bars": 0, "dataset_source": ds.source}
+
+    params_base = BacktestParams(
+        sizing_mode=sizing_mode,
+        buy_threshold=buy_threshold,
+        sell_threshold=sell_threshold,
+        fee_bps=fee_bps,
+        slippage_bps=slippage_bps,
+        vol_window=vol_window,
+        max_position_size=max_position_size,
+        target_volatility=target_volatility,
+        initial_capital=initial_capital,
+        start_iso=start_date,
+        end_iso=end_date,
+    )
+
+    windows: list[dict[str, Any]] = []
+    oos_parts: list[dict[str, Any]] = []
+    eq0 = float(initial_capital)
+
+    i = 0
+    while True:
+        train_end = i + train_bars
+        test_end = train_end + test_bars
+        if test_end > len(df):
+            break
+        test_df = df.iloc[train_end:test_end].copy()
+        # Run backtest on test slice; rebase equity to current eq0 for continuity
+        params = BacktestParams(**{**params_base.__dict__, "initial_capital": eq0})
+        res = run_backtest(test_df, params)
+        if res.equity_curve:
+            eq0 = float(res.equity_curve[-1]["equity"])  # type: ignore[index]
+        windows.append(
+            {
+                "train_start": str(df.iloc[i]["timestamp"]),
+                "train_end": str(df.iloc[train_end - 1]["timestamp"]),
+                "test_start": str(test_df.iloc[0]["timestamp"]),
+                "test_end": str(test_df.iloc[-1]["timestamp"]),
+                "summary": res.summary.__dict__,
+            }
+        )
+        oos_parts.extend(res.equity_curve)
+        i += step_bars
+
+    # Summary on concatenated curve (approx): use last eq vs initial_capital
+    summary = None
+    if oos_parts:
+        last_eq = float(oos_parts[-1]["equity"])  # type: ignore[index]
+        summary = {
+            "oos_cumulative_return": (last_eq / float(initial_capital)) - 1.0,
+            "windows": len(windows),
+        }
+    return {
+        "summary": summary,
+        "equity_curve": oos_parts,
+        "windows": windows,
+        "bars": len(df),
+        "dataset_source": ds.source,
+        "params": params_base.__dict__,
     }
 
 

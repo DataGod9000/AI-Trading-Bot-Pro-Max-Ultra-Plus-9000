@@ -76,8 +76,9 @@ export default function MlPage() {
       <div className="mb-6 rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Machine learning signals</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Multi-horizon up probabilities, blended ml_score, and how they fed the last unified decision. Values come
-          from <code className="rounded bg-muted px-1">signals.breakdown_json</code>.
+          A breakdown of the ML layer for the latest runs: per-horizon up probabilities, the blended ml_score, and how
+          it influenced the final decision. Values are read from{" "}
+          <code className="rounded bg-muted px-1">signals.breakdown_json</code>.
         </p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">

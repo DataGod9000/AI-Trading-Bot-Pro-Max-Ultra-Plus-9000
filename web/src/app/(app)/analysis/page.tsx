@@ -111,7 +111,8 @@ export default function MarketAnalysisPage() {
       <div className="mb-6 rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Market analysis</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Signal history, stored OHLC, and news sentiment from your local DB — for context, not predictions.
+          A quick read on what the system has been seeing lately. Signal history, saved candles, and news sentiment from
+          your local DB for context, not predictions.
         </p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">

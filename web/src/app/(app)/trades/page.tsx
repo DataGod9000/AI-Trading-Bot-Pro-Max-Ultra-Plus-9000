@@ -67,7 +67,8 @@ export default function TradesPage() {
       <div className="mb-6 rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Trade history & realized PnL</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Closed paper trades from SQLite. Daily totals in other tools use exit date (UTC). Not financial advice.
+          Closed paper trades from SQLite and how they turned out. Daily totals elsewhere use the exit date (UTC). Not
+          financial advice.
         </p>
       </div>
 

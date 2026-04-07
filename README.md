@@ -31,6 +31,23 @@ btc-paper-test-news
 btc-paper-run
 ```
 
+## Backfill 1 year of 1h candles (for backtesting)
+
+This fills the `candles` table with ~1 year of hourly BTC-USD OHLCV (idempotent, safe to rerun).
+
+```bash
+btc-paper-backfill-prices --period 1y --timeframe 1h
+```
+
+## Reconstruct historical signals (no lookahead)
+
+This computes a per-bar `final_score` historically using only information available up to each bar and caches the
+result into SQLite `signal_bars` (idempotent).
+
+```bash
+btc-paper-reconstruct-signals --timeframe 1h --lookback-hours 24
+```
+
 ## ML layer (optional)
 
 1. Build a training CSV from SQLite (1h candles + signals):

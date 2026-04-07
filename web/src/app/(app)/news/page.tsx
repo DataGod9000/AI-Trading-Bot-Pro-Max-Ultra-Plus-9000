@@ -209,9 +209,9 @@ export default function NewsPage() {
               News Sentimental Analysis
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Headlines from Yahoo (BTC-USD, IBIT, COIN, MSTR) scored with FinBERT and stored in your local SQLite
-              — same path as the pipeline. Use <strong>Refresh Yahoo + FinBERT</strong> to pull new
-              stories and re-score; first run may download model weights and take a few minutes.
+              Yahoo headlines (BTC-USD, IBIT, COIN, MSTR) scored with FinBERT and saved to your local SQLite. Use{" "}
+              <strong>Refresh Yahoo + FinBERT</strong> to pull new stories and re-score. The first run may download
+              model weights and take a few minutes.
             </p>
           </div>
           <AnimatedDownloadButton

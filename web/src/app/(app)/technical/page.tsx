@@ -122,9 +122,9 @@ export default function TechnicalPage() {
       <div className="mb-6 rounded-xl border border-border bg-card p-6">
         <h1 className="text-2xl font-semibold tracking-tight">Technical</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Live CoinGecko series with the same indicator stack as the pipeline. Normalized score is about −1 … +1
-          per timeframe; weights {data.weight_1h} (1h) + {data.weight_4h} (4h) blend into one technical score when
-          both sides are available.
+          Live CoinGecko candles run through the same indicator stack used by the pipeline. Scores are roughly −1 to +1
+          per timeframe. When both timeframes are available, we blend them using weights {data.weight_1h} (1h) and{" "}
+          {data.weight_4h} (4h).
         </p>
         {data.spot_usd != null ? (
           <p className="mt-3 font-mono text-lg font-semibold text-amber-500">
