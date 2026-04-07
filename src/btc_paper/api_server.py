@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Literal, Optional
 import pandas as pd
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from btc_paper import db
@@ -147,6 +148,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    """Bare domain (e.g. Render) → interactive API docs (avoids FastAPI’s default 404 on `/`)."""
+    return RedirectResponse(url="/docs", status_code=307)
 
 
 @app.get("/api/health")
