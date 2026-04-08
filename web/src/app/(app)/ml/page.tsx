@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { ClientOnly } from "@/components/client-only";
 import { apiGet } from "@/lib/api";
+import { ChartSkeleton, RotatingLoadingMessage, Skeleton } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 type HistRow = {
   run_at: string;
@@ -48,7 +50,10 @@ export default function MlPage() {
 
   useEffect(() => {
     apiGet<MlSummary>(`/api/ml/summary?hist_n=${histN}`)
-      .then(setData)
+      .then(async (r) => {
+        await snapshotDelay();
+        setData(r);
+      })
       .catch((e: Error) => setErr(e.message));
   }, [histN]);
 
@@ -56,7 +61,35 @@ export default function MlPage() {
     return <p className="text-destructive">{err}</p>;
   }
   if (!data) {
-    return <p className="text-muted-foreground">Loading ML summary…</p>;
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h1 className="text-2xl font-semibold tracking-tight">Machine learning signals</h1>
+          <RotatingLoadingMessage
+            className="mt-2"
+            messages={["Loading ML snapshot…", "Preparing horizon probabilities…", "Rendering chart…"]}
+          />
+          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">History rows</span>
+              <Skeleton className="h-7 w-20" />
+            </div>
+          </div>
+          <div className="mt-4 space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>Models dir:</span>
+              <Skeleton className="h-3 w-64" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">ML score history</h2>
+          <div className="mt-3 h-64">
+            <ChartSkeleton label="Loading ML history…" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const latest = data.latest_signal;

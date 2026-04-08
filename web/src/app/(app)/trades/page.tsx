@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { ClientOnly } from "@/components/client-only";
 import { apiGet } from "@/lib/api";
+import { ChartSkeleton, RotatingLoadingMessage, TableSkeleton } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 type Row = Record<string, unknown>;
 
@@ -22,7 +24,8 @@ export default function TradesPage() {
 
   useEffect(() => {
     apiGet<{ closed: Row[]; open_trade: Row | null; performance: typeof perf }>("/api/trades?limit=10000")
-      .then((r) => {
+      .then(async (r) => {
+        await snapshotDelay();
         setClosed(r.closed);
         setOpenTrade(r.open_trade);
         setPerf(r.performance);
@@ -59,7 +62,24 @@ export default function TradesPage() {
     return <p className="text-destructive">{err}</p>;
   }
   if (!perf) {
-    return <p className="text-muted-foreground">Loading trades…</p>;
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h1 className="text-2xl font-semibold tracking-tight">Trade history & realized PnL</h1>
+          <RotatingLoadingMessage
+            className="mt-2"
+            messages={["Loading trade history…", "Aggregating PnL…", "Preparing table…"]}
+          />
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-2 text-sm font-semibold">Cumulative realized PnL</h2>
+          <div className="h-64">
+            <ChartSkeleton label="Computing PnL curve…" />
+          </div>
+        </div>
+        <TableSkeleton rows={10} cols={8} />
+      </div>
+    );
   }
 
   return (

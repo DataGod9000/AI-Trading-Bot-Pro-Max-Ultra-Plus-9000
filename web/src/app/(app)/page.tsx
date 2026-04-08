@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import { ClientOnly } from "@/components/client-only";
 import { apiGet } from "@/lib/api";
+import { ChartSkeleton, MetricGridSkeleton, RotatingLoadingMessage } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 function safeFloat(v: unknown): number {
   const n = Number(v);
@@ -189,6 +191,8 @@ export default function OverviewPage() {
         setBtErr(null);
         try {
           const backtest = await apiGet<BacktestRun>(`/api/backtest/run?${qs.toString()}`, { timeoutMs: 180_000 });
+          // In snapshot mode this returns instantly; add a tiny delay for a more natural UX.
+          await snapshotDelay();
           if (!cancelled) setBt(backtest);
         } catch (be) {
           if (!cancelled) setBtErr((be as Error).message);
@@ -440,14 +444,20 @@ function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
 
       {/* 3) Headline Performance Metrics */}
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Headline performance</h2>
-        {btLoading && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[52px] animate-pulse rounded-lg bg-muted/50" />
-            ))}
-          </div>
-        )}
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Headline performance</h2>
+          {btLoading ? (
+            <RotatingLoadingMessage
+              className="text-right"
+              messages={[
+                "Computing strategy performance…",
+                "Loading backtest snapshot…",
+                "Calculating metrics…",
+              ]}
+            />
+          ) : null}
+        </div>
+        {btLoading ? <MetricGridSkeleton count={6} /> : null}
         {btErr && (
           <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">Backtest did not complete</p>
@@ -471,10 +481,22 @@ function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
 
       {/* 4) Equity Curve (main chart) */}
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Equity curve</h2>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Equity curve</h2>
+          {btLoading ? (
+            <RotatingLoadingMessage
+              className="text-right"
+              messages={[
+                "Drawing equity curve…",
+                "Downsampling time series…",
+                "Computing benchmark overlay…",
+              ]}
+            />
+          ) : null}
+        </div>
         <div className="mt-3 h-[360px]">
           {btLoading ? (
-            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+            <ChartSkeleton label="Computing equity curve…" />
           ) : bt ? (
             <ClientOnly>
               <ResponsiveContainer width="100%" height="100%">
@@ -499,10 +521,15 @@ function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
 
       {/* 5) Drawdown Chart */}
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Drawdown</h2>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Drawdown</h2>
+          {btLoading ? (
+            <RotatingLoadingMessage className="text-right" messages={["Computing drawdown…", "Scanning peaks…"]} />
+          ) : null}
+        </div>
         <div className="mt-3 h-56">
           {btLoading ? (
-            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+            <ChartSkeleton label="Computing drawdown…" />
           ) : bt ? (
             <ClientOnly>
               <ResponsiveContainer width="100%" height="100%">
@@ -526,10 +553,18 @@ function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
 
       {/* 6) Position / Exposure Chart */}
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Exposure</h2>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Exposure</h2>
+          {btLoading ? (
+            <RotatingLoadingMessage
+              className="text-right"
+              messages={["Computing position series…", "Applying sizing rules…"]}
+            />
+          ) : null}
+        </div>
         <div className="mt-3 h-56">
           {btLoading ? (
-            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+            <ChartSkeleton label="Computing exposure…" />
           ) : bt ? (
             <ClientOnly>
               <ResponsiveContainer width="100%" height="100%">
@@ -564,10 +599,18 @@ function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
 
       {/* 7) Signal Over Time Chart */}
       <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Signal strength</h2>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Signal strength</h2>
+          {btLoading ? (
+            <RotatingLoadingMessage
+              className="text-right"
+              messages={["Loading score history…", "Plotting thresholds…"]}
+            />
+          ) : null}
+        </div>
         <div className="mt-3 h-56">
           {btLoading ? (
-            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+            <ChartSkeleton label="Computing signal history…" />
           ) : bt ? (
             <ClientOnly>
               <ResponsiveContainer width="100%" height="100%">

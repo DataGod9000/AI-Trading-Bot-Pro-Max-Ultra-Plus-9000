@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import { ClientOnly } from "@/components/client-only";
 import { apiGet } from "@/lib/api";
+import { ChartSkeleton, RotatingLoadingMessage } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 type Ta = {
   timeframe: string;
@@ -88,7 +90,10 @@ export default function TechnicalPage() {
 
   useEffect(() => {
     apiGet<LiveTech>("/api/technical/live?chart_points=200", { timeoutMs: 120_000 })
-      .then(setData)
+      .then(async (r) => {
+        await snapshotDelay();
+        setData(r);
+      })
       .catch((e: Error) => setErr(e.message));
   }, []);
 
@@ -106,13 +111,25 @@ export default function TechnicalPage() {
   }
   if (!data) {
     return (
-      <div className="max-w-xl space-y-2 text-muted-foreground">
-        <p>Loading live technicals…</p>
-        <p className="text-sm">
-          Fetching CoinGecko market data on the server — can take up to ~2 minutes on a cold start or rate limits.
-          Ensure <code className="rounded bg-muted px-1 text-foreground">btc-paper-api</code> is running on{" "}
-          <code className="rounded bg-muted px-1 text-foreground">127.0.0.1:8000</code>.
-        </p>
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h1 className="text-2xl font-semibold tracking-tight">Technical</h1>
+          <RotatingLoadingMessage
+            className="mt-2"
+            messages={["Loading technical snapshot…", "Computing RSI/MACD…", "Preparing charts…"]}
+          />
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Price (1h / 4h)</h2>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <div className="h-56">
+              <ChartSkeleton label="Loading 1h candles…" />
+            </div>
+            <div className="h-56">
+              <ChartSkeleton label="Loading 4h candles…" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

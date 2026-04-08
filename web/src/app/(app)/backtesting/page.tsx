@@ -13,6 +13,8 @@ import {
 import { ClientOnly } from "@/components/client-only";
 import AnimatedDownloadButton from "@/components/ui/download-hover-button";
 import { apiGet } from "@/lib/api";
+import { ChartSkeleton, MetricGridSkeleton, RotatingLoadingMessage } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 type BacktestSummary = {
   cumulative_return: number;
@@ -102,6 +104,7 @@ export default function BacktestingPage() {
         qs.set("news_lookback_hours", "24");
       }
       const r = await apiGet<BacktestRun>(`/api/backtest/run?${qs.toString()}`, { timeoutMs: 180_000 });
+      await snapshotDelay();
       setData(r);
     } catch (e) {
       setErr((e as Error).message);
@@ -134,7 +137,29 @@ export default function BacktestingPage() {
   }, [data]);
 
   if (err) return <p className="text-destructive">{err}</p>;
-  if (!data) return <p className="text-muted-foreground">Loading backtest…</p>;
+  if (!data) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Backtesting</h1>
+          <RotatingLoadingMessage
+            className="mt-2"
+            messages={["Running backtest simulation…", "Calculating metrics…", "Preparing charts…"]}
+          />
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Headline performance</h2>
+          <MetricGridSkeleton count={6} />
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Equity curve</h2>
+          <div className="mt-3 h-[360px]">
+            <ChartSkeleton label="Running backtest simulation…" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const s = data.summary;
 

@@ -14,6 +14,8 @@ import {
 import AnimatedDownloadButton from "@/components/ui/download-hover-button";
 import { ClientOnly } from "@/components/client-only";
 import { apiGet, apiPost } from "@/lib/api";
+import { RotatingLoadingMessage, Skeleton, TableSkeleton } from "@/components/ui/skeleton";
+import { snapshotDelay } from "@/lib/loading";
 
 type Article = Record<string, unknown>;
 
@@ -151,14 +153,20 @@ export default function NewsPage() {
   const loadArticles = useCallback(() => {
     setErr(null);
     return apiGet<{ articles: Article[] }>("/api/news?limit=100")
-      .then((r) => setArticles(r.articles))
+      .then(async (r) => {
+        await snapshotDelay();
+        setArticles(r.articles);
+      })
       .catch((e: Error) => setErr(e.message));
   }, []);
 
   const loadAnalytics = useCallback(() => {
     setAnalyticsErr(null);
     return apiGet<Analytics>("/api/news/analytics?max_days=90")
-      .then((r) => setAnalytics(r))
+      .then(async (r) => {
+        await snapshotDelay();
+        setAnalytics(r);
+      })
       .catch((e: Error) => {
         const msg = e.message;
         const looks404 =
@@ -205,6 +213,32 @@ export default function NewsPage() {
 
   if (err) {
     return <p className="text-destructive">{err}</p>;
+  }
+
+  if (!analytics && articles.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="mb-2 rounded-xl border border-border bg-card p-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">News Sentimental Analysis</h1>
+          <RotatingLoadingMessage
+            className="mt-2"
+            messages={["Loading news snapshot…", "Aggregating sentiment…", "Preparing article list…"]}
+          />
+          <div className="mt-4 flex items-center gap-3">
+            <Skeleton className="h-10 w-72" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="text-lg font-semibold text-white">FinBERT summary</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+          </div>
+        </div>
+        <TableSkeleton rows={10} cols={5} />
+      </div>
+    );
   }
 
   const s = analytics?.summary;
