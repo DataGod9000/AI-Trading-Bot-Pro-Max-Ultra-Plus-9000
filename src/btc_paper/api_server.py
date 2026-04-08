@@ -146,16 +146,31 @@ def _resolve_price(settings: Settings, price: Optional[float]) -> float:
         ) from exc
 
 
-app = FastAPI(title="AI Trading Bot Pro Max Ultra Plus 9000 API", version="0.2.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+def _cors_allow_origins() -> List[str]:
+    """Local dev defaults plus optional production origins (Render, Vercel, etc.)."""
+    origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
-    ],
+    ]
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw:
+        for part in raw.split(","):
+            o = part.strip().rstrip("/")
+            if o and o not in origins:
+                origins.append(o)
+    single = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
+    if single and single not in origins:
+        origins.append(single)
+    return origins
+
+
+app = FastAPI(title="AI Trading Bot Pro Max Ultra Plus 9000 API", version="0.2.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_allow_origins(),
     # Any dev port (3002, …) when NEXT_PUBLIC_API_URL points straight at FastAPI
     allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
