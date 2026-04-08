@@ -16,6 +16,9 @@ from pydantic import BaseModel, Field
 
 from btc_paper import db
 from btc_paper.config import Settings, load_settings
+from btc_paper.overview_data import build_overview_payload
+from btc_paper.public_settings import public_settings_payload
+from btc_paper import snapshots as snap
 from btc_paper.paper_trader import manual_order, try_rule_based_exit
 from btc_paper.technical.coingecko import fetch_spot_price_usd
 from btc_paper.technical.indicators import TimeframeAnalysis
@@ -54,13 +57,22 @@ def _safe_float(val: Any) -> float:
         return 0.0
 
 
-def _max_drawdown(pnls: List[float]) -> float:
-    if not pnls:
-        return 0.0
-    equity = pd.Series(pd.Series(pnls).cumsum())
-    running_max = equity.cummax()
-    dd = equity - running_max
-    return float(dd.min())
+def _reject_heavy_if_blocked(settings: Settings) -> None:
+    """Block pandas backtests on lean deploy hosts (set BLOCK_HEAVY_COMPUTE=true)."""
+    if settings.block_heavy_compute:
+        raise HTTPException(
+            status_code=503,
+            detail="Heavy compute is disabled (BLOCK_HEAVY_COMPUTE). Use SNAPSHOT_MODE with pre-exported files.",
+        )
+
+
+def _signal_position_from_action(action: str) -> str:
+    a = (action or "").upper()
+    if a == "BUY":
+        return "LONG"
+    if a == "SELL":
+        return "SHORT"
+    return "FLAT"
 
 
 def _ta_to_dict(ta: Optional[TimeframeAnalysis]) -> Optional[Dict[str, Any]]:
@@ -100,38 +112,6 @@ def _df_ohlc_tail(df: Optional[pd.DataFrame], max_points: int = 250) -> List[Dic
             }
         )
     return out
-
-
-def _public_settings(settings: Settings) -> Dict[str, Any]:
-    return {
-        "paper_trade_usd": settings.paper_trade_usd,
-        "take_profit_pct": settings.take_profit_pct,
-        "stop_loss_pct": settings.stop_loss_pct,
-        "max_hold_hours": settings.max_hold_hours,
-        "news_weight": settings.news_weight,
-        "technical_weight": settings.technical_weight,
-        "ml_weight": settings.ml_weight,
-        "legacy_news_weight": settings.legacy_news_weight,
-        "legacy_technical_weight": settings.legacy_technical_weight,
-        "ml_enabled": settings.ml_enabled,
-        "technical_tf_1h_weight": settings.technical_tf_1h_weight,
-        "technical_tf_4h_weight": settings.technical_tf_4h_weight,
-        "ml_horizon_weight_1h": settings.ml_horizon_weight_1h,
-        "ml_horizon_weight_12h": settings.ml_horizon_weight_12h,
-        "ml_horizon_weight_24h": settings.ml_horizon_weight_24h,
-        "models_dir": str(settings.models_dir),
-        "backtest_defaults": {
-            "buy_threshold": settings.backtest_buy_threshold,
-            "sell_threshold": settings.backtest_sell_threshold,
-            "fee_bps": settings.backtest_fee_bps,
-            "slippage_bps": settings.backtest_slippage_bps,
-            "sizing_mode": settings.backtest_sizing_mode,
-            "vol_window": settings.backtest_vol_window,
-            "max_position_size": settings.backtest_max_position_size,
-            "target_volatility": settings.backtest_target_volatility,
-            "initial_capital": settings.backtest_initial_capital,
-        },
-    }
 
 
 def _resolve_price(settings: Settings, price: Optional[float]) -> float:
@@ -192,7 +172,15 @@ def health() -> dict[str, bool]:
 
 @app.get("/api/settings/public")
 def settings_public() -> dict[str, Any]:
-    return _public_settings(load_settings())
+    settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.settings_public_snapshot(settings)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot settings failed: {exc}") from exc
+    out = public_settings_payload(settings)
+    out["demo_snapshot"] = snap.demo_snapshot_flags(settings)
+    return out
 
 
 @app.get("/api/price/live")
@@ -208,6 +196,13 @@ def price_live() -> dict[str, Any]:
 @app.get("/api/signal/latest")
 def latest_signal() -> dict[str, Optional[dict[str, Any]]]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_latest_signal_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot signal failed: {exc}") from exc
     with db.connect(settings) as conn:
         row = db.fetch_latest_signal(conn)
         if row is None:
@@ -218,40 +213,14 @@ def latest_signal() -> dict[str, Optional[dict[str, Any]]]:
 @app.get("/api/overview")
 def overview() -> dict[str, Any]:
     settings = load_settings()
-    live_price: Optional[float] = None
-    price_warn = ""
-    try:
-        live_price = fetch_spot_price_usd(settings)
-    except Exception as exc:  # noqa: BLE001
-        price_warn = str(exc)
-
-    with db.connect(settings) as conn:
-        sig_row = db.fetch_latest_signal(conn)
-        news_rows = db.fetch_recent_news(conn, 10)
-        open_trade = db.get_open_paper_trade(conn)
-        closed = db.fetch_closed_trades(conn, 200)
-        perf = dict(db.aggregate_performance(conn))
-
-    closed_list = [_row_to_dict(r) for r in closed]
-    pnls = [_safe_float(r["pnl"]) for r in reversed(closed) if r["pnl"] is not None]
-    mdd = _max_drawdown(pnls)
-    win_rate = (perf["wins"] / perf["trade_count"] * 100) if perf.get("trade_count") else 0.0
-    cum = list(pd.Series(pnls).cumsum()) if pnls else []
-    cum_pnl_series = [{"i": i, "v": float(v)} for i, v in enumerate(cum)]
-
-    return {
-        "live_price": live_price,
-        "price_warn": price_warn,
-        "signal": _jsonable_signal_row(sig_row) if sig_row else None,
-        "news": [_row_to_dict(r) for r in news_rows],
-        "open_trade": _row_to_dict(open_trade) if open_trade else None,
-        "closed_trades": closed_list,
-        "performance": perf,
-        "max_drawdown_usd": mdd,
-        "win_rate_pct": win_rate,
-        "cumulative_pnl": cum_pnl_series,
-        "settings": _public_settings(settings),
-    }
+    if settings.snapshot_mode:
+        try:
+            return snap.load_overview_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot overview failed: {exc}") from exc
+    return build_overview_payload(settings, fetch_live_price=True)
 
 
 @app.get("/api/news")
@@ -304,6 +273,13 @@ def news_sync() -> dict[str, Any]:
 @app.get("/api/signals/recent")
 def signals_recent(n: int = Query(45, ge=1, le=500)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_signals_recent_snapshot(settings, n)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot signals failed: {exc}") from exc
     with db.connect(settings) as conn:
         rows = db.fetch_recent_signals(conn, n)
     return {"signals": [_jsonable_signal_row(r) for r in rows]}
@@ -312,6 +288,13 @@ def signals_recent(n: int = Query(45, ge=1, le=500)) -> dict[str, Any]:
 @app.get("/api/trades")
 def api_trades(limit: int = Query(5000, ge=1, le=50_000)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_trades_snapshot(settings, limit)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot trades failed: {exc}") from exc
     with db.connect(settings) as conn:
         closed = db.fetch_closed_trades(conn, limit)
         open_trade = db.get_open_paper_trade(conn)
@@ -350,7 +333,7 @@ def paper_state() -> dict[str, Any]:
         "open_trade": _row_to_dict(open_trade) if open_trade else None,
         "closed_trades": [_row_to_dict(r) for r in closed],
         "performance": dict(perf),
-        "settings": _public_settings(settings),
+        "settings": public_settings_payload(settings),
     }
 
 
@@ -394,9 +377,65 @@ def paper_check_exit(body: Optional[PriceBody] = Body(default=None)) -> dict[str
     return {"ok": ok, "message": msg, "price_used": px}
 
 
+@app.get("/api/history")
+def api_history(
+    ml_limit: int = Query(500, ge=1, le=5000),
+    sig_limit: int = Query(500, ge=1, le=5000),
+) -> dict[str, Any]:
+    """Chart-friendly series: precomputed CSV in snapshot mode, else built from recent signals."""
+    settings = load_settings()
+    if settings.snapshot_mode:
+        return snap.load_history_snapshot(settings, ml_limit, sig_limit)
+    n = max(ml_limit, sig_limit)
+    with db.connect(settings) as conn:
+        rows = db.fetch_recent_signals(conn, n)
+    chron = list(reversed(rows))
+    ml_predictions: List[dict[str, Any]] = []
+    for r in chron[-ml_limit:]:
+        rowd = _jsonable_signal_row(r)
+        br = rowd.get("breakdown") or {}
+        if not isinstance(br, dict):
+            br = {}
+        ml = br.get("ml") or {}
+        hp = ml.get("horizon_predictions") or {}
+        p1 = (hp.get("target_up_1h") or {}).get("prob_up")
+        p12 = (hp.get("target_up_12h") or {}).get("prob_up")
+        p24 = (hp.get("target_up_24h") or {}).get("prob_up")
+        ml_predictions.append(
+            {
+                "timestamp": rowd.get("run_at"),
+                "prediction": ml.get("ml_bias") or "",
+                "probability": ml.get("ml_prob"),
+                "prob_1h": p1,
+                "prob_12h": p12,
+                "prob_24h": p24,
+                "ml_score": br.get("ml_score", 0),
+                "final_score": rowd.get("final_score"),
+                "action": rowd.get("action"),
+            }
+        )
+    signal_points: List[dict[str, Any]] = []
+    for r in rows[:sig_limit]:
+        rowd = _jsonable_signal_row(r)
+        signal_points.append(
+            {
+                "timestamp": rowd.get("run_at"),
+                "final_score": _safe_float(rowd.get("final_score")),
+                "position": _signal_position_from_action(str(rowd.get("action", ""))),
+                "action": rowd.get("action"),
+            }
+        )
+    return {"ml_predictions": ml_predictions, "signal_points": signal_points}
+
+
 @app.get("/api/ml/summary")
 def ml_summary(hist_n: int = Query(45, ge=5, le=200)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_ml_summary_snapshot(settings, hist_n)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot ML summary failed: {exc}") from exc
     root = Path.cwd()
     mdir = settings.models_dir if settings.models_dir.is_absolute() else root / settings.models_dir
     meta_path = mdir / "model_metadata.json"
@@ -455,7 +494,7 @@ def ml_summary(hist_n: int = Query(45, ge=5, le=200)) -> dict[str, Any]:
         "conflict_dampened": bool(breakdown.get("conflict_dampened")),
         "reason": latest.get("reason") if latest else None,
         "history": hist,
-        "settings": _public_settings(settings),
+        "settings": public_settings_payload(settings),
     }
 
 
@@ -493,6 +532,11 @@ def market_analysis(
     news_limit: int = Query(400, ge=10, le=1000),
 ) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        frozen = snap.load_market_analysis_snapshot(settings)
+        if frozen is not None:
+            return frozen
+        return {"signals": [], "candles_1h": [], "candles_4h": [], "news": []}
     with db.connect(settings) as conn:
         sig_rows = db.fetch_recent_signals(conn, sig_limit)
         news_rows = db.fetch_recent_news(conn, news_limit)
@@ -528,6 +572,14 @@ def backtest_run(
     Signal at bar t -> executed position at bar t+1 (no lookahead).
     """
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_backtest_run_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot backtest failed: {exc}") from exc
+    _reject_heavy_if_blocked(settings)
     params = BacktestParams(
         sizing_mode=sizing_mode,  # validated inside sizing module
         buy_threshold=buy_threshold,
@@ -585,6 +637,19 @@ def backtest_trades(
     end_date: Optional[str] = Query(None),
 ) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            data = snap.load_backtest_run_snapshot(settings)
+            return {
+                "trades": data.get("trades", []),
+                "params": data.get("params", {}),
+                "bars": int(data.get("bars", 0) or 0),
+            }
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot backtest trades failed: {exc}") from exc
+    _reject_heavy_if_blocked(settings)
     params = BacktestParams(
         sizing_mode=sizing_mode,
         buy_threshold=buy_threshold,
@@ -628,6 +693,17 @@ def backtest_compare(
     Compare sizing modes side by side (fixed vs confidence vs vol-adjusted).
     """
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_backtest_compare_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"{exc}. Run btc-paper-export-snapshots to generate backtest_compare.json.",
+            ) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot compare failed: {exc}") from exc
+    _reject_heavy_if_blocked(settings)
     ds = generate_backtest_dataset(
         settings,
         start_iso=start_date,
@@ -691,6 +767,17 @@ def backtest_walkforward(
     - Concatenate OOS segments into one continuous curve.
     """
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_backtest_walkforward_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"{exc}. Run btc-paper-export-snapshots to generate backtest_walkforward.json.",
+            ) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot walk-forward failed: {exc}") from exc
+    _reject_heavy_if_blocked(settings)
     ds = generate_backtest_dataset(
         settings,
         start_iso=start_date,

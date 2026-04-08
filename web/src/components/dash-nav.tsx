@@ -12,6 +12,7 @@ const links = [
   { href: "/paper-trading", label: "Paper trading" },
   { href: "/trades", label: "Trade history" },
   { href: "/analysis", label: "Market analysis" },
+  { href: "/live-test", label: "Live Test" },
 ];
 
 export function DashNav() {

@@ -151,9 +151,12 @@ function TooltipBox({ active, payload, label }: any) {
 }
 
 export default function OverviewPage() {
+  const [bootReady, setBootReady] = useState(false);
   const [sig, setSig] = useState<Record<string, unknown> | null>(null);
   const [bt, setBt] = useState<BacktestRun | null>(null);
   const [pub, setPub] = useState<PublicSettingsResp | null>(null);
+  const [btLoading, setBtLoading] = useState(true);
+  const [btErr, setBtErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tooSmall, setTooSmall] = useState(false);
 
@@ -166,8 +169,9 @@ export default function OverviewPage() {
           apiGet<PublicSettingsResp>("/api/settings/public"),
         ]);
         if (cancelled) return;
-        setSig(latest.signal);
+        setSig(latest.signal ?? null);
         setPub(publicSettings);
+        setBootReady(true);
 
         const d = publicSettings.backtest_defaults ?? {};
         const qs = new URLSearchParams();
@@ -181,9 +185,16 @@ export default function OverviewPage() {
         qs.set("target_volatility", String(d.target_volatility ?? 0.2));
         qs.set("initial_capital", String(d.initial_capital ?? 10_000));
 
-        const backtest = await apiGet<BacktestRun>(`/api/backtest/run?${qs.toString()}`, { timeoutMs: 180_000 });
-        if (cancelled) return;
-        setBt(backtest);
+        setBtLoading(true);
+        setBtErr(null);
+        try {
+          const backtest = await apiGet<BacktestRun>(`/api/backtest/run?${qs.toString()}`, { timeoutMs: 180_000 });
+          if (!cancelled) setBt(backtest);
+        } catch (be) {
+          if (!cancelled) setBtErr((be as Error).message);
+        } finally {
+          if (!cancelled) setBtLoading(false);
+        }
       } catch (e) {
         if (cancelled) return;
         setErr((e as Error).message);
@@ -213,7 +224,9 @@ export default function OverviewPage() {
     );
   }
 
-  if (!sig || !bt || !pub) return <p className="text-muted-foreground">Loading overview…</p>;
+  if (!bootReady || !pub) {
+    return <p className="text-muted-foreground">Loading overview…</p>;
+  }
 
   if (tooSmall) {
     return (
@@ -227,38 +240,52 @@ export default function OverviewPage() {
     );
   }
 
-  return <OverviewBody sig={sig} bt={bt} pub={pub} />;
+  return (
+    <OverviewBody
+      sig={sig}
+      pub={pub}
+      bt={bt}
+      btLoading={btLoading}
+      btErr={btErr}
+    />
+  );
 }
 
 type OverviewBodyProps = {
-  sig: Record<string, unknown>;
-  bt: BacktestRun;
+  sig: Record<string, unknown> | null;
+  bt: BacktestRun | null;
   pub: PublicSettingsResp;
+  btLoading: boolean;
+  btErr: string | null;
 };
 
-function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
-  const br = (sig.breakdown as Record<string, unknown> | null) ?? {};
-  const finalScore = safeFloat(sig.final_score);
+function OverviewBody({ sig, pub, bt, btLoading, btErr }: OverviewBodyProps) {
+  const d = pub.backtest_defaults ?? {};
+  const buyTh = Number(d.buy_threshold ?? bt?.params?.buy_threshold ?? 0.08);
+  const sellTh = Number(d.sell_threshold ?? bt?.params?.sell_threshold ?? -0.08);
+  const feeBps = Number(d.fee_bps ?? bt?.params?.fee_bps ?? 0);
+  const slipBps = Number(d.slippage_bps ?? bt?.params?.slippage_bps ?? 0);
+  const sizingMode = String(d.sizing_mode ?? bt?.params?.sizing_mode ?? "confidence");
+  const volWindow = Number(d.vol_window ?? bt?.params?.vol_window ?? 72);
+  const maxPos = Number(d.max_position_size ?? bt?.params?.max_position_size ?? 1);
+  const tgtVol = Number(d.target_volatility ?? bt?.params?.target_volatility ?? 0.2);
+
+  const br = sig ? ((sig.breakdown as Record<string, unknown> | null) ?? {}) : {};
+  const finalScore = sig ? safeFloat(sig.final_score) : 0;
   const conf = Math.min(1, Math.max(0, Math.abs(finalScore)));
-  const lbl = signalLabelFromAction(String(sig.action ?? "HOLD"));
+  const lbl = signalLabelFromAction(sig ? String(sig.action ?? "HOLD") : "HOLD");
 
   const mlScore = safeFloat(br.ml_score);
-  const sentimentScore = safeFloat(sig.news_score);
-  const technicalScore = safeFloat(sig.technical_score);
+  const sentimentScore = sig ? safeFloat(sig.news_score) : 0;
+  const technicalScore = sig ? safeFloat(sig.technical_score) : 0;
 
-  const d = pub.backtest_defaults ?? {};
-  const buyTh = Number(d.buy_threshold ?? bt.params.buy_threshold ?? 0.08);
-  const sellTh = Number(d.sell_threshold ?? bt.params.sell_threshold ?? -0.08);
-  const feeBps = Number(d.fee_bps ?? bt.params.fee_bps ?? 0);
-  const slipBps = Number(d.slippage_bps ?? bt.params.slippage_bps ?? 0);
-  const sizingMode = String(d.sizing_mode ?? bt.params.sizing_mode ?? "confidence");
-  const volWindow = Number(d.vol_window ?? bt.params.vol_window ?? 72);
-  const maxPos = Number(d.max_position_size ?? bt.params.max_position_size ?? 1);
-  const tgtVol = Number(d.target_volatility ?? bt.params.target_volatility ?? 0.2);
-
-  const summaryNorm = useMemo(() => normalizeSummary(bt.summary), [bt.summary]);
+  const summaryNorm = useMemo(
+    () => (bt ? normalizeSummary(bt.summary) : null),
+    [bt],
+  );
 
   const equity = useMemo(() => {
+    if (!bt) return [];
     const benchByTs = new Map(bt.benchmark_curve.map((p) => [p.ts, p.equity ?? 0]));
     return downsampleRows(
       bt.equity_curve.map((p) => ({
@@ -268,96 +295,106 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       })),
       CHART_MAX_POINTS,
     );
-  }, [bt.benchmark_curve, bt.equity_curve]);
+  }, [bt]);
 
-  const drawdown = useMemo(
-    () =>
-      downsampleRows(
-        bt.drawdown_curve.map((p) => ({
-          ts: String(p.ts).slice(0, 10),
-          drawdown: safeFloat(p.drawdown),
-        })),
-        CHART_MAX_POINTS,
-      ),
-    [bt.drawdown_curve],
-  );
+  const drawdown = useMemo(() => {
+    if (!bt) return [];
+    return downsampleRows(
+      bt.drawdown_curve.map((p) => ({
+        ts: String(p.ts).slice(0, 10),
+        drawdown: safeFloat(p.drawdown),
+      })),
+      CHART_MAX_POINTS,
+    );
+  }, [bt]);
 
-  const exposure = useMemo(
-    () =>
-      downsampleRows(
-        bt.exposure_curve.map((p) => ({
-          ts: String(p.ts).slice(0, 10),
-          exposure: safeFloat(p.exposure),
-        })),
-        CHART_MAX_POINTS,
-      ),
-    [bt.exposure_curve],
-  );
+  const exposure = useMemo(() => {
+    if (!bt) return [];
+    return downsampleRows(
+      bt.exposure_curve.map((p) => ({
+        ts: String(p.ts).slice(0, 10),
+        exposure: safeFloat(p.exposure),
+      })),
+      CHART_MAX_POINTS,
+    );
+  }, [bt]);
 
-  const score = useMemo(
-    () =>
-      downsampleRows(
-        (bt.score_curve ?? []).map((p) => ({
-          ts: String(p.ts).slice(0, 10),
-          final_score: safeFloat(p.final_score),
-        })),
-        CHART_MAX_POINTS,
-      ),
-    [bt.score_curve],
-  );
+  const score = useMemo(() => {
+    if (!bt) return [];
+    return downsampleRows(
+      (bt.score_curve ?? []).map((p) => ({
+        ts: String(p.ts).slice(0, 10),
+        final_score: safeFloat(p.final_score),
+      })),
+      CHART_MAX_POINTS,
+    );
+  }, [bt]);
 
-  const periodDays = bt.bars > 0 ? Math.round(bt.bars / 24) : 0;
-  const interpretation = useMemo(() => interpretSummary(summaryNorm), [summaryNorm]);
+  const periodDays = bt && bt.bars > 0 ? Math.round(bt.bars / 24) : 0;
+  const interpretation = useMemo(() => {
+    if (!summaryNorm) return [];
+    return interpretSummary(summaryNorm);
+  }, [summaryNorm]);
 
   return (
     <div className="max-w-full space-y-6 overflow-x-hidden">
       {/* 1) Hero Section (Current Signal) */}
       <section className="rounded-xl border border-border bg-card p-6">
-        {/* w-full: flex row with a lone child was shrinking this block to content width, leaving empty space */}
         <div className="w-full min-w-0 max-w-full">
           <div className="text-xs font-semibold uppercase tracking-wide text-primary">Current signal</div>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signalPillClass(lbl)}`}>
-              {lbl}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              Updated <span className="font-mono text-foreground">{String(sig.run_at ?? "—")}</span>
-            </span>
-          </div>
-          <div className="mt-4 grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Final score</div>
-              <div className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">
-                {`${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(3)}`}
-              </div>
-            </div>
-            <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Confidence</div>
-              <div className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">
-                {`${Math.round(conf * 100)}%`}
-              </div>
-            </div>
-            <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Breakdown</div>
-              <div className="mt-2 flex min-w-0 flex-col gap-1.5 font-mono text-xs text-foreground sm:text-sm">
-                <span title="ML score">
-                  ML {mlScore >= 0 ? "+" : ""}
-                  {mlScore.toFixed(3)}
+          {sig ? (
+            <>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${signalPillClass(lbl)}`}>
+                  {lbl}
                 </span>
-                <span title="News sentiment score">
-                  Sentiment {sentimentScore >= 0 ? "+" : ""}
-                  {sentimentScore.toFixed(3)}
-                </span>
-                <span title="Technical score">
-                  Technical {technicalScore >= 0 ? "+" : ""}
-                  {technicalScore.toFixed(3)}
+                <span className="text-sm text-muted-foreground">
+                  Updated <span className="font-mono text-foreground">{String(sig.run_at ?? "—")}</span>
                 </span>
               </div>
+              <div className="mt-4 grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Final score</div>
+                  <div className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">
+                    {`${finalScore >= 0 ? "+" : ""}${finalScore.toFixed(3)}`}
+                  </div>
+                </div>
+                <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Confidence</div>
+                  <div className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">
+                    {`${Math.round(conf * 100)}%`}
+                  </div>
+                </div>
+                <div className="flex min-h-[92px] min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/30 p-4">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Breakdown</div>
+                  <div className="mt-2 flex min-w-0 flex-col gap-1.5 font-mono text-xs text-foreground sm:text-sm">
+                    <span title="ML score">
+                      ML {mlScore >= 0 ? "+" : ""}
+                      {mlScore.toFixed(3)}
+                    </span>
+                    <span title="News sentiment score">
+                      Sentiment {sentimentScore >= 0 ? "+" : ""}
+                      {sentimentScore.toFixed(3)}
+                    </span>
+                    <span title="Technical score">
+                      Technical {technicalScore >= 0 ? "+" : ""}
+                      {technicalScore.toFixed(3)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Signal is generated by blending ML prediction, news sentiment, and technical indicators.
+              </p>
+            </>
+          ) : (
+            <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <p>No live signal is stored yet. Run your pipeline or scheduler so <span className="font-mono text-foreground">/api/signal/latest</span> returns data.</p>
+              <p className="text-xs">
+                Strategy rules and the backtest below still load from public settings. The backtest can take longer on small cloud CPUs than on your laptop — charts appear when it finishes.
+              </p>
             </div>
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Signal is generated by blending ML prediction, news sentiment, and technical indicators.
-          </p>
+          )}
         </div>
       </section>
 
@@ -404,32 +441,58 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       {/* 3) Headline Performance Metrics */}
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Headline performance</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <MetricCard k="Cumulative return" v={fmtPct(summaryNorm.cumulative_return)} tip="Total return over the tested period." />
-          <MetricCard k="Sharpe ratio" v={fmtNum(summaryNorm.sharpe)} tip="Risk-adjusted return (higher is better)." />
-          <MetricCard k="Max drawdown" v={fmtPct(summaryNorm.max_drawdown)} tip="Worst peak-to-trough loss." />
-          <MetricCard k="Win rate" v={fmtPct(summaryNorm.win_rate)} tip="Share of profitable trades." />
-          <MetricCard k="Trades" v={String(summaryNorm.trade_count)} tip="Number of simulated trades." />
-          <MetricCard k="Alpha vs BTC" v={fmtPct(summaryNorm.alpha_vs_benchmark)} tip="Return difference vs buy-and-hold BTC." />
-        </div>
+        {btLoading && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-[52px] animate-pulse rounded-lg bg-muted/50" />
+            ))}
+          </div>
+        )}
+        {btErr && (
+          <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Backtest did not complete</p>
+            <p className="mt-1">{btErr}</p>
+            <p className="mt-2 text-xs">
+              Full runs over ~1 year of hourly bars are CPU-heavy. Free or small instances often need longer than a laptop; try refreshing, or use a larger / always-on host if timeouts persist.
+            </p>
+          </div>
+        )}
+        {!btLoading && bt && summaryNorm && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <MetricCard k="Cumulative return" v={fmtPct(summaryNorm.cumulative_return)} tip="Total return over the tested period." />
+            <MetricCard k="Sharpe ratio" v={fmtNum(summaryNorm.sharpe)} tip="Risk-adjusted return (higher is better)." />
+            <MetricCard k="Max drawdown" v={fmtPct(summaryNorm.max_drawdown)} tip="Worst peak-to-trough loss." />
+            <MetricCard k="Win rate" v={fmtPct(summaryNorm.win_rate)} tip="Share of profitable trades." />
+            <MetricCard k="Trades" v={String(summaryNorm.trade_count)} tip="Number of simulated trades." />
+            <MetricCard k="Alpha vs BTC" v={fmtPct(summaryNorm.alpha_vs_benchmark)} tip="Return difference vs buy-and-hold BTC." />
+          </div>
+        )}
       </section>
 
       {/* 4) Equity Curve (main chart) */}
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Equity curve</h2>
         <div className="mt-3 h-[360px]">
-          <ClientOnly>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={equity}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
-                <Tooltip content={<TooltipBox />} />
-                <Line name="Strategy" type="monotone" dataKey="strategy" stroke="#10b981" dot={false} strokeWidth={2} />
-                <Line name="BTC buy-and-hold" type="monotone" dataKey="benchmark" stroke="var(--muted-foreground)" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ClientOnly>
+          {btLoading ? (
+            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+          ) : bt ? (
+            <ClientOnly>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={equity}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
+                  <Tooltip content={<TooltipBox />} />
+                  <Line name="Strategy" type="monotone" dataKey="strategy" stroke="#10b981" dot={false} strokeWidth={2} />
+                  <Line name="BTC buy-and-hold" type="monotone" dataKey="benchmark" stroke="var(--muted-foreground)" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ClientOnly>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              No equity curve yet
+            </div>
+          )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Strategy performance vs BTC buy-and-hold</p>
       </section>
@@ -438,17 +501,25 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Drawdown</h2>
         <div className="mt-3 h-56">
-          <ClientOnly>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={drawdown}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} domain={["dataMin", 0]} />
-                <Tooltip content={<TooltipBox />} />
-                <Line name="Drawdown" type="monotone" dataKey="drawdown" stroke="#ef4444" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ClientOnly>
+          {btLoading ? (
+            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+          ) : bt ? (
+            <ClientOnly>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={drawdown}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
+                  <YAxis stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} domain={["dataMin", 0]} />
+                  <Tooltip content={<TooltipBox />} />
+                  <Line name="Drawdown" type="monotone" dataKey="drawdown" stroke="#ef4444" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ClientOnly>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              No drawdown series yet
+            </div>
+          )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Peak-to-trough losses over time</p>
       </section>
@@ -457,26 +528,34 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Exposure</h2>
         <div className="mt-3 h-56">
-          <ClientOnly>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={exposure}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
-                <YAxis
-                  type="number"
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickMargin={8}
-                  domain={[-1, 1]}
-                  ticks={[-1, -0.5, 0, 0.5, 1]}
-                  allowDataOverflow
-                />
-                <Tooltip content={<TooltipBox />} />
-                <ReferenceLine y={0} stroke="var(--border)" />
-                <Line name="Exposure" type="stepAfter" dataKey="exposure" stroke="#60a5fa" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ClientOnly>
+          {btLoading ? (
+            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+          ) : bt ? (
+            <ClientOnly>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={exposure}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
+                  <YAxis
+                    type="number"
+                    stroke="var(--muted-foreground)"
+                    fontSize={11}
+                    tickMargin={8}
+                    domain={[-1, 1]}
+                    ticks={[-1, -0.5, 0, 0.5, 1]}
+                    allowDataOverflow
+                  />
+                  <Tooltip content={<TooltipBox />} />
+                  <ReferenceLine y={0} stroke="var(--border)" />
+                  <Line name="Exposure" type="stepAfter" dataKey="exposure" stroke="#60a5fa" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ClientOnly>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              No exposure series yet
+            </div>
+          )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Strategy exposure over time (downsampled to ~{CHART_MAX_POINTS} points for readability)
@@ -487,36 +566,44 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Signal strength</h2>
         <div className="mt-3 h-56">
-          <ClientOnly>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={score} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
-                <YAxis
-                  type="number"
-                  stroke="var(--muted-foreground)"
-                  fontSize={11}
-                  tickMargin={8}
-                  domain={[-1.05, 1.05]}
-                  ticks={[-1, -0.5, 0, 0.5, 1]}
-                  allowDataOverflow
-                />
-                <Tooltip content={<TooltipBox />} />
-                <ReferenceLine y={Number(buyTh)} stroke="#10b981" strokeDasharray="4 4" />
-                <ReferenceLine y={Number(sellTh)} stroke="#ef4444" strokeDasharray="4 4" />
-                <ReferenceLine y={0} stroke="var(--border)" />
-                <Line
-                  name="Final score"
-                  type="monotone"
-                  dataKey="final_score"
-                  stroke="#f59e0b"
-                  dot={false}
-                  strokeWidth={2}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ClientOnly>
+          {btLoading ? (
+            <div className="h-full animate-pulse rounded-lg bg-muted/40" />
+          ) : bt ? (
+            <ClientOnly>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={score} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis dataKey="ts" stroke="var(--muted-foreground)" fontSize={11} tickMargin={8} />
+                  <YAxis
+                    type="number"
+                    stroke="var(--muted-foreground)"
+                    fontSize={11}
+                    tickMargin={8}
+                    domain={[-1.05, 1.05]}
+                    ticks={[-1, -0.5, 0, 0.5, 1]}
+                    allowDataOverflow
+                  />
+                  <Tooltip content={<TooltipBox />} />
+                  <ReferenceLine y={Number(buyTh)} stroke="#10b981" strokeDasharray="4 4" />
+                  <ReferenceLine y={Number(sellTh)} stroke="#ef4444" strokeDasharray="4 4" />
+                  <ReferenceLine y={0} stroke="var(--border)" />
+                  <Line
+                    name="Final score"
+                    type="monotone"
+                    dataKey="final_score"
+                    stroke="#f59e0b"
+                    dot={false}
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </ClientOnly>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              No score series yet
+            </div>
+          )}
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Signal strength over time (score is −1 to +1; downsampled to ~{CHART_MAX_POINTS} points)
@@ -527,7 +614,10 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Backtest settings</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <SettingRow k="Period" v={periodDays ? `~${periodDays} days (1h bars)` : `${bt.bars} bars`} />
+          <SettingRow
+            k="Period"
+            v={periodDays ? `~${periodDays} days (1h bars)` : bt ? `${bt.bars} bars` : btLoading ? "Computing…" : "—"}
+          />
           <SettingRow k="Sizing mode" v={sizingMode} mono />
           <SettingRow k="Fee" v={`${feeBps} bps`} mono />
           <SettingRow k="Slippage" v={`${slipBps} bps`} mono />
@@ -536,7 +626,7 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
           <SettingRow k="Buy threshold" v={`${buyTh}`} mono />
           <SettingRow k="Sell threshold" v={`${sellTh}`} mono />
           <SettingRow k="Target volatility" v={`${tgtVol}`} mono />
-          <SettingRow k="Dataset source" v={bt.dataset_source} mono />
+          <SettingRow k="Dataset source" v={bt?.dataset_source ?? "—"} mono />
         </div>
       </section>
 
@@ -544,17 +634,24 @@ function OverviewBody({ sig, bt, pub }: OverviewBodyProps) {
       <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Summary</h2>
         <div className="mt-3 max-w-3xl space-y-2 text-sm text-muted-foreground">
-          {interpretation.length ? (
+          {btLoading && (
+            <div className="space-y-2">
+              <div className="h-4 w-full max-w-md animate-pulse rounded bg-muted/50" />
+              <div className="h-4 w-full max-w-lg animate-pulse rounded bg-muted/50" />
+              <div className="h-4 w-full max-w-sm animate-pulse rounded bg-muted/50" />
+            </div>
+          )}
+          {!btLoading && bt && interpretation.length > 0 && (
             <ul className="list-disc pl-5">
               {interpretation.map((t, idx) => (
-                <li key={`${bt.bars}-${idx}-${summaryNorm.alpha_vs_benchmark}-${summaryNorm.sharpe}-${summaryNorm.max_drawdown}`}>
-                  {t}
-                </li>
+                <li key={idx}>{t}</li>
               ))}
             </ul>
-          ) : (
+          )}
+          {!btLoading && bt && interpretation.length === 0 && (
             <p>Not enough data to generate an interpretation yet.</p>
           )}
+          {!btLoading && !bt && !btErr && <p>Run completed with no backtest payload.</p>}
           <p className="text-xs">
             Trust check: backtests use next-bar execution (t → t+1), apply fees/slippage on turnover, and avoid lookahead
             by construction.

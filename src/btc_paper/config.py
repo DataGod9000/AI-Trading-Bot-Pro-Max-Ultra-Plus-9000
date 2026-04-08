@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     stop_loss_pct: float = 1.5
     max_hold_hours: int = 24
 
+    # Demo / deploy: serve precomputed files from disk (fast, no DB backtest on each page load).
+    snapshot_mode: bool = Field(default=False, validation_alias="SNAPSHOT_MODE")
+    snapshot_dir: Path = Field(default=Path("data/snapshots"), validation_alias="SNAPSHOT_DIR")
+    # When True, live backtest / walk-forward / compare endpoints refuse to run pandas work (use on Render without snapshots by mistake).
+    block_heavy_compute: bool = Field(default=False, validation_alias="BLOCK_HEAVY_COMPUTE")
+    # Default training artifact root (btc-paper-train-ml --output-dir artifacts).
+    artifacts_dir: Path = Field(default=Path("artifacts"), validation_alias="ARTIFACTS_DIR")
+
 
 def load_settings() -> Settings:
     return Settings()

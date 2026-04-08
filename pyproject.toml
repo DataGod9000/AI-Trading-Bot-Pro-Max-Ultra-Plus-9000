@@ -41,6 +41,7 @@ btc-paper-train-ml = "btc_paper.ml.train_ml_models:main"
 btc-paper-api = "btc_paper.api_server:main"
 btc-paper-backfill-prices = "btc_paper.backfill.backfill_prices:main"
 btc-paper-reconstruct-signals = "btc_paper.backfill.reconstruct_signals:main"
+btc-paper-export-snapshots = "btc_paper.snapshot_export:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

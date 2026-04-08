@@ -11,6 +11,7 @@ import pandas as pd
 
 from btc_paper.config import Settings
 from btc_paper.ml.feature_schema import FEATURE_COLUMNS, FEATURE_VERSION
+from btc_paper.ml.train_ml_models import HORIZON_ARTIFACT_BASENAME
 
 
 @dataclass
@@ -31,10 +32,20 @@ class MLSignalEngine:
             raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
         self.metadata: Dict[str, Any] = json.loads(metadata_path.read_text(encoding="utf-8"))
         self.horizon_targets = ["target_up_1h", "target_up_12h", "target_up_24h"]
-        self.models = {
-            target: joblib.load(self.models_dir / f"{target}_model.joblib")
-            for target in self.horizon_targets
-        }
+        self.models = {target: joblib.load(self._resolve_model_path(target)) for target in self.horizon_targets}
+
+    def _resolve_model_path(self, target: str) -> Path:
+        """Prefer artifacts layout (btc_*h_model.pkl), fall back to legacy target_*_model.joblib."""
+        new_name = HORIZON_ARTIFACT_BASENAME.get(target)
+        if new_name:
+            p_new = self.models_dir / new_name
+            if p_new.is_file():
+                return p_new
+        legacy = self.models_dir / f"{target}_model.joblib"
+        if legacy.is_file():
+            return legacy
+        hint = new_name or f"{target}_model.joblib"
+        raise FileNotFoundError(f"No model file for {target} under {self.models_dir} (expected {hint} or legacy .joblib)")
 
     def _row_to_frame(self, feature_row: Dict[str, float] | pd.Series) -> pd.DataFrame:
         if isinstance(feature_row, pd.Series):

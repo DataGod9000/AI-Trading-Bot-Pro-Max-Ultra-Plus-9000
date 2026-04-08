@@ -1,0 +1,390 @@
+{
+  "live_price": null,
+  "price_warn": "",
+  "signal": {
+    "id": 2,
+    "run_at": "2026-04-06T08:40:22+00:00",
+    "btc_price": 69243.0,
+    "news_score": -0.058673797051111864,
+    "technical_score": 0.44,
+    "final_score": -0.12245647364499992,
+    "action": "HOLD",
+    "confidence": 0.12245647364499992,
+    "reason": "Sentiment roughly neutral (-0.06) Technicals supportive (+0.44) ML bias **bearish** (blended up-prob 0.14, score -0.72 on \u22121\u2026+1). Unified score **-0.122** \u2192 **HOLD**. Strong cross-signal disagreement detected; score dampened \u00d70.7 per policy. Context \u2014 News: 11 articles; aggregate news score -0.059 | Technicals: 1h +0.50 (trend 1, RSI 71.9, MACD +0.50, vol True); 4h +0.40 (trend 1, RSI 69.3).",
+    "breakdown_json": "{\"news_score\": -0.058673797051111864, \"technical_score\": 0.44, \"weights\": {\"news\": 0.3, \"technical\": 0.3, \"ml\": 0.4, \"legacy_news\": 0.6, \"legacy_technical\": 0.4, \"ml_active\": true}, \"ml_score\": -0.7233392009438087, \"conflict_dampened\": true, \"ml\": {\"horizon_predictions\": {\"target_up_1h\": {\"prob_up\": 0.2904965830759811, \"predicted_class\": 0, \"model_name\": \"random_forest\"}, \"target_up_12h\": {\"prob_up\": 0.1854497641324997, \"predicted_class\": 0, \"model_name\": \"xgboost\"}, \"target_up_24h\": {\"prob_up\": 0.015127943149748893, \"predicted_class\": 0, \"model_name\": \"logistic_regression\"}}, \"ml_prob\": 0.13833039952809567, \"ml_score\": -0.7233392009438087, \"ml_bias\": \"bearish\", \"feature_version\": \"1.0\", \"training_run_at\": \"2026-04-06T08:40:17+00:00\"}, \"technical\": {\"1h\": {\"close\": 69242.91902507884, \"ema20\": 68434.27842917423, \"ema50\": 67799.21974494876, \"rsi14\": 71.89587957339248, \"bb_upper\": 70066.56929631764, \"bb_lower\": 66379.87047897914, \"bb_mid\": 68223.21988764839, \"macd\": 546.1991188034881, \"macd_signal\": 471.6652795390701, \"bb_width\": 0.05403876896179697, \"trend_term\": 1, \"rsi_s\": -0.5, \"bb_s\": 0.0, \"macd_s\": 0.5, \"mean_rev_before_vol_dampen\": -0.5, \"mean_rev_after_vol_dampen\": -0.25, \"volatility_high\": true, \"raw_sum\": 1.25, \"normalized_score\": 0.5}, \"4h\": {\"close\": 69085.0, \"ema20\": 67630.06273919599, \"ema50\": 67609.36118357936, \"rsi14\": 69.32503593595455, \"bb_upper\": 68864.8088648124, \"bb_lower\": 65811.39113518762, \"bb_mid\": 67338.1, \"macd\": 334.9199910668103, \"macd_signal\": 80.01673261786131, \"bb_width\": 0.04534457802677503, \"trend_term\": 1, \"rsi_s\": 0.0, \"bb_s\": -0.5, \"macd_s\": 0.5, \"mean_rev_before_vol_dampen\": -0.5, \"mean_rev_after_vol_dampen\": -0.5, \"volatility_high\": false, \"raw_sum\": 1.0, \"normalized_score\": 0.4}}, \"top_headlines\": [\"Bitcoin Price Flashed 3 Bullish Hints in a Week and None Delivered a Breakout\", \"Bitcoin\\u2019s 36% Annualized Return Since August 2020 Shows Why Zooming Out Still Wins\", \"Why Is The Crypto Market Up Today?\"], \"article_count\": 11, \"ml_feature_row\": {\"news_score\": -0.058673797051111864, \"technical_score\": 0.44, \"final_rule_score\": 0.14079572176933292, \"ema_trend_1h\": 1.0, \"ema_trend_4h\": 1.0, \"rsi_1h\": 71.89587957339248, \"rsi_4h\": 69.32503593595455, \"bollinger_position_1h\": 0.7765886740285958, \"bollinger_position_4h\": 1.0, \"bollinger_width_1h\": 0.05403876896179697, \"bollinger_width_4h\": 0.04534457802677503, \"macd_score_1h\": 0.5, \"macd_score_4h\": 0.5, \"return_1h\": 0.0022832001791685905, \"return_4h\": 0.00030406579404610216, \"volume_change_1h\": 0.0, \"volume_change_4h\": 0.0, \"price_close\": 69242.91902507884}}",
+    "breakdown": {
+      "news_score": -0.058673797051111864,
+      "technical_score": 0.44,
+      "weights": {
+        "news": 0.3,
+        "technical": 0.3,
+        "ml": 0.4,
+        "legacy_news": 0.6,
+        "legacy_technical": 0.4,
+        "ml_active": true
+      },
+      "ml_score": -0.7233392009438087,
+      "conflict_dampened": true,
+      "ml": {
+        "horizon_predictions": {
+          "target_up_1h": {
+            "prob_up": 0.2904965830759811,
+            "predicted_class": 0,
+            "model_name": "random_forest"
+          },
+          "target_up_12h": {
+            "prob_up": 0.1854497641324997,
+            "predicted_class": 0,
+            "model_name": "xgboost"
+          },
+          "target_up_24h": {
+            "prob_up": 0.015127943149748893,
+            "predicted_class": 0,
+            "model_name": "logistic_regression"
+          }
+        },
+        "ml_prob": 0.13833039952809567,
+        "ml_score": -0.7233392009438087,
+        "ml_bias": "bearish",
+        "feature_version": "1.0",
+        "training_run_at": "2026-04-06T08:40:17+00:00"
+      },
+      "technical": {
+        "1h": {
+          "close": 69242.91902507884,
+          "ema20": 68434.27842917423,
+          "ema50": 67799.21974494876,
+          "rsi14": 71.89587957339248,
+          "bb_upper": 70066.56929631764,
+          "bb_lower": 66379.87047897914,
+          "bb_mid": 68223.21988764839,
+          "macd": 546.1991188034881,
+          "macd_signal": 471.6652795390701,
+          "bb_width": 0.05403876896179697,
+          "trend_term": 1,
+          "rsi_s": -0.5,
+          "bb_s": 0.0,
+          "macd_s": 0.5,
+          "mean_rev_before_vol_dampen": -0.5,
+          "mean_rev_after_vol_dampen": -0.25,
+          "volatility_high": true,
+          "raw_sum": 1.25,
+          "normalized_score": 0.5
+        },
+        "4h": {
+          "close": 69085.0,
+          "ema20": 67630.06273919599,
+          "ema50": 67609.36118357936,
+          "rsi14": 69.32503593595455,
+          "bb_upper": 68864.8088648124,
+          "bb_lower": 65811.39113518762,
+          "bb_mid": 67338.1,
+          "macd": 334.9199910668103,
+          "macd_signal": 80.01673261786131,
+          "bb_width": 0.04534457802677503,
+          "trend_term": 1,
+          "rsi_s": 0.0,
+          "bb_s": -0.5,
+          "macd_s": 0.5,
+          "mean_rev_before_vol_dampen": -0.5,
+          "mean_rev_after_vol_dampen": -0.5,
+          "volatility_high": false,
+          "raw_sum": 1.0,
+          "normalized_score": 0.4
+        }
+      },
+      "top_headlines": [
+        "Bitcoin Price Flashed 3 Bullish Hints in a Week and None Delivered a Breakout",
+        "Bitcoin\u2019s 36% Annualized Return Since August 2020 Shows Why Zooming Out Still Wins",
+        "Why Is The Crypto Market Up Today?"
+      ],
+      "article_count": 11,
+      "ml_feature_row": {
+        "news_score": -0.058673797051111864,
+        "technical_score": 0.44,
+        "final_rule_score": 0.14079572176933292,
+        "ema_trend_1h": 1.0,
+        "ema_trend_4h": 1.0,
+        "rsi_1h": 71.89587957339248,
+        "rsi_4h": 69.32503593595455,
+        "bollinger_position_1h": 0.7765886740285958,
+        "bollinger_position_4h": 1.0,
+        "bollinger_width_1h": 0.05403876896179697,
+        "bollinger_width_4h": 0.04534457802677503,
+        "macd_score_1h": 0.5,
+        "macd_score_4h": 0.5,
+        "return_1h": 0.0022832001791685905,
+        "return_4h": 0.00030406579404610216,
+        "volume_change_1h": 0.0,
+        "volume_change_4h": 0.0,
+        "price_close": 69242.91902507884
+      }
+    }
+  },
+  "news": [
+    {
+      "id": 94,
+      "headline": "Stocks to Watch: Strategy, Tesla, JBS, Paramount",
+      "snippet": "\u2197\ufe0f Strategy (MSTR), Coinbase (COIN): The crypto-related stocks jumped on the back of gains for bitcoin and other cryptocurrencies. \u2197\ufe0f JBS (JBS): Shares in the world's largest meatpacker rose after its workers in Colorado agreed to end a three-week strike.",
+      "source": "The Wall Street Journal",
+      "url": "https://www.wsj.com/livecoverage/stock-market-today-dow-sp-500-nasdaq-04-06-2026/card/stocks-to-watch-strategy-coinbase-paramount-MeAhgCSkxFU7iFSMg4cC?siteid=yhoof2&yptr=yahoo",
+      "published_at": "2026-04-06T13:51:24+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "bullish",
+      "sentiment_score": 0.8835140988230705,
+      "sentiment_confidence": 0.9303580522537231,
+      "impact": "low",
+      "final_article_score": 1.0602169185876846
+    },
+    {
+      "id": 93,
+      "headline": "Strategy Resumes Bitcoin Buying With $330 Million Purchase. The Stock Jumps.",
+      "snippet": "The company formerly known as MicroStrategy discloses a purchase of 4,871 Bitcoin following a brief pause.",
+      "source": "Barrons.com",
+      "url": "https://www.barrons.com/articles/mstr-stock-price-strategy-microstrategy-buys-bitcoin-155ff8c7?siteid=yhoof2&yptr=yahoo",
+      "published_at": "2026-04-06T14:31:00+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "neutral",
+      "sentiment_score": 0.040654370561242104,
+      "sentiment_confidence": 0.9194386601448059,
+      "impact": "low",
+      "final_article_score": 0.048785244673490526
+    },
+    {
+      "id": 92,
+      "headline": "Strategy Records a $14.5 Billion Unrealized Loss in First Quarter",
+      "snippet": "Strategy, the bitcoin accumulation firm founded by Michael Saylor, recorded a $14.5 billion unrealized loss in the first quarter after a sharp decline in the value of its bitcoin stash.  Strategy adopted a fair value accounting standard last year that requires companies holding digital assets to show the fair value of their cryptocurrencies on their balance sheets at the end of each quarter.  The change has driven wild swings in Strategy\u2019s earnings, with the company reporting a $12.4 billion net loss in the fourth quarter.",
+      "source": "The Wall Street Journal",
+      "url": "https://www.wsj.com/livecoverage/stock-market-today-dow-sp-500-nasdaq-04-06-2026/card/strategy-records-a-14-5-billion-unrealized-loss-in-first-quarter-ZKXTFoPDDHCm3cdcrldd?siteid=yhoof2&yptr=yahoo",
+      "published_at": "2026-04-06T14:59:17+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "bearish",
+      "sentiment_score": -0.9635282065719366,
+      "sentiment_confidence": 0.9718947410583496,
+      "impact": "low",
+      "final_article_score": -1.1562338478863239
+    },
+    {
+      "id": 91,
+      "headline": "Michael Saylor Says 'Bitcoin Has Won'",
+      "snippet": "Strategy Executive Chairman, Michael Saylor on Saturday declared that Bitcoin's old four-year rhythm no longer explains price action, arguing that money moving into the asset\u2014shaped by banks and digital credit\u2014now matters more. The claim lands as Strategy's Bitcoin playbook shows...",
+      "source": "Benzinga",
+      "url": "https://finance.yahoo.com/markets/crypto/articles/michael-saylor-says-bitcoin-won-153106276.html",
+      "published_at": "2026-04-06T15:31:06+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "neutral",
+      "sentiment_score": 0.07037397474050522,
+      "sentiment_confidence": 0.7863293886184692,
+      "impact": "low",
+      "final_article_score": 0.10556096211075783
+    },
+    {
+      "id": 90,
+      "headline": "These Stocks Are Today\u2019s Movers: Seagate, Micron, Tesla, Kratos, Strategy, Soleno, Viridian, and More",
+      "snippet": "Seagate Technology stock jumps after Morgan Stanley names the maker of hard disk drives its \u2018top pick,\u2019 replacing Western Digital.",
+      "source": "Barrons.com",
+      "url": "https://www.barrons.com/articles/stock-movers-6ec5fe3a?siteid=yhoof2&yptr=yahoo",
+      "published_at": "2026-04-06T16:44:00+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "bullish",
+      "sentiment_score": 0.3395868092775345,
+      "sentiment_confidence": 0.4835436940193176,
+      "impact": "low",
+      "final_article_score": 0.5093802139163017
+    },
+    {
+      "id": 89,
+      "headline": "Bitcoin jumps 4% to hover near $70,000 on hopes of ceasefire deal",
+      "snippet": "Bitcoin jumped roughly 4% to $70,000 as markets looked toward the possibility of a ceasefire between the US and Iran.",
+      "source": "Yahoo Finance",
+      "url": "https://finance.yahoo.com/news/bitcoin-jumps-4-to-hover-near-70000-on-hopes-of-ceasefire-deal-143214793.html",
+      "published_at": "2026-04-06T14:32:14+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "bullish",
+      "sentiment_score": 0.9036220014095306,
+      "sentiment_confidence": 0.9370930790901184,
+      "impact": "low",
+      "final_article_score": 1.0843464016914368
+    },
+    {
+      "id": 88,
+      "headline": "Bitcoin, XRP Prices Rise. Why Strategy Can Give Cryptos a Bigger Boost.",
+      "snippet": "Bitcoin and other cryptocurrencies advanced on Monday, bucking days of stagnant trading after Strategy\u2014one of the most significant digital asset market participants\u2014suggested they may resume a buying spree.  The price of  Bitcoin  rose 3% over the past 24 hours to above $69,000, its highest point in nearly two weeks.  The largest crypto by market value has languished around or below $70,000 since February, the latest stage of declines that have taken Bitcoin down from late-2025 highs above $125,000.",
+      "source": "Barrons.com",
+      "url": "https://www.barrons.com/articles/bitcoin-xrp-price-strategy-coinbase-5858d059?siteid=yhoof2&yptr=yahoo",
+      "published_at": "2026-04-06T08:58:00+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "bearish",
+      "sentiment_score": -0.529536634683609,
+      "sentiment_confidence": 0.7534113526344299,
+      "impact": "low",
+      "final_article_score": -0.529536634683609
+    },
+    {
+      "id": 87,
+      "headline": "Bitcoin Rebounds Near $70,000, Charles Schwab To Launch Direct Trading",
+      "snippet": "Bitcoin price jumps above $69,000 amid Iran war ceasefire discussions, short liquidations. Charles Schwab to launch direct crypto trading.",
+      "source": "Investor's Business Daily",
+      "url": "https://www.investors.com/news/bitcoin-price-rebound-69k-charles-schwab-direct-trading/?src=A00220&yptr=yahoo",
+      "published_at": "2026-04-06T12:50:06+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "neutral",
+      "sentiment_score": 0.03717684745788574,
+      "sentiment_confidence": 0.37714698910713196,
+      "impact": "low",
+      "final_article_score": 0.044612216949462886
+    },
+    {
+      "id": 86,
+      "headline": "Investors Heavily Search Coinbase Global, Inc. (COIN): Here is What You Need to Know",
+      "snippet": "Zacks.com users have recently been watching Coinbase Global (COIN) quite a bit. Thus, it is worth knowing the facts that could determine the stock's prospects.",
+      "source": "Zacks",
+      "url": "https://finance.yahoo.com/markets/stocks/articles/investors-heavily-search-coinbase-global-130002879.html",
+      "published_at": "2026-04-06T13:00:02+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "neutral",
+      "sentiment_score": 0.028478505089879036,
+      "sentiment_confidence": 0.9352412223815918,
+      "impact": "low",
+      "final_article_score": 0.03417420610785484
+    },
+    {
+      "id": 85,
+      "headline": "BlackRock Is Coming for the Most Profitable ETF Monopoly on Wall Street: Why It Could Win",
+      "snippet": "BlackRock filed a Nasdaq-100 ETF to challenge Invesco's QQQ. Here are 7 reasons it could win and what stands in its way.",
+      "source": "BeInCrypto",
+      "url": "https://beincrypto.com/blackrock-iqq-etf-beat-invesco-qqq/",
+      "published_at": "2026-04-06T12:33:14+00:00",
+      "scraped_at": "2026-04-06T17:17:49+00:00",
+      "sentiment_label": "neutral",
+      "sentiment_score": 0.08105256222188473,
+      "sentiment_confidence": 0.8836860656738281,
+      "impact": "high",
+      "final_article_score": 0.1458946119993925
+    }
+  ],
+  "open_trade": {
+    "id": 5,
+    "signal_id": null,
+    "side": "BUY",
+    "entry_price": 69006.0,
+    "exit_price": null,
+    "qty": 0.0014491493493319421,
+    "entry_ts": "2026-04-06T06:26:31+00:00",
+    "exit_ts": null,
+    "status": "OPEN",
+    "pnl": null,
+    "exit_reason": null
+  },
+  "closed_trades": [
+    {
+      "id": 4,
+      "signal_id": null,
+      "side": "SELL",
+      "entry_price": 69006.0,
+      "exit_price": 69006.0,
+      "qty": 0.0014491493493319421,
+      "entry_ts": "2026-04-06T06:26:29+00:00",
+      "exit_ts": "2026-04-06T06:26:31+00:00",
+      "status": "CLOSED",
+      "pnl": 0.0,
+      "exit_reason": "manual_flip"
+    },
+    {
+      "id": 3,
+      "signal_id": null,
+      "side": "BUY",
+      "entry_price": 69006.0,
+      "exit_price": 69006.0,
+      "qty": 0.0014491493493319421,
+      "entry_ts": "2026-04-06T06:26:23+00:00",
+      "exit_ts": "2026-04-06T06:26:29+00:00",
+      "status": "CLOSED",
+      "pnl": 0.0,
+      "exit_reason": "manual_flip"
+    },
+    {
+      "id": 2,
+      "signal_id": null,
+      "side": "SELL",
+      "entry_price": 66766.0,
+      "exit_price": 69006.0,
+      "qty": 0.0014977683251954587,
+      "entry_ts": "2026-04-05T07:54:42+00:00",
+      "exit_ts": "2026-04-06T06:26:23+00:00",
+      "status": "CLOSED",
+      "pnl": -3.3550010484378276,
+      "exit_reason": "manual_flip"
+    },
+    {
+      "id": 1,
+      "signal_id": null,
+      "side": "BUY",
+      "entry_price": 66817.0,
+      "exit_price": 66766.0,
+      "qty": 0.0014966251103761018,
+      "entry_ts": "2026-04-05T07:27:42+00:00",
+      "exit_ts": "2026-04-05T07:54:42+00:00",
+      "status": "CLOSED",
+      "pnl": -0.0763278806291812,
+      "exit_reason": "manual_flip"
+    }
+  ],
+  "performance": {
+    "trade_count": 4,
+    "wins": 0,
+    "avg_pnl": -0.8578322322667522,
+    "total_pnl": -3.431328929067009,
+    "min_pnl": -3.3550010484378276,
+    "max_pnl": 0.0
+  },
+  "max_drawdown_usd": -3.3550010484378276,
+  "win_rate_pct": 0.0,
+  "cumulative_pnl": [
+    {
+      "i": 0,
+      "v": -0.0763278806291812
+    },
+    {
+      "i": 1,
+      "v": -3.431328929067009
+    },
+    {
+      "i": 2,
+      "v": -3.431328929067009
+    },
+    {
+      "i": 3,
+      "v": -3.431328929067009
+    }
+  ],
+  "settings": {
+    "paper_trade_usd": 100.0,
+    "take_profit_pct": 2.0,
+    "stop_loss_pct": 1.5,
+    "max_hold_hours": 24,
+    "news_weight": 0.3,
+    "technical_weight": 0.3,
+    "ml_weight": 0.4,
+    "legacy_news_weight": 0.6,
+    "legacy_technical_weight": 0.4,
+    "ml_enabled": true,
+    "technical_tf_1h_weight": 0.4,
+    "technical_tf_4h_weight": 0.6,
+    "ml_horizon_weight_1h": 0.2,
+    "ml_horizon_weight_12h": 0.4,
+    "ml_horizon_weight_24h": 0.4,
+    "models_dir": "models",
+    "backtest_defaults": {
+      "buy_threshold": 0.08,
+      "sell_threshold": -0.08,
+      "fee_bps": 0.0,
+      "slippage_bps": 0.0,
+      "sizing_mode": "confidence",
+      "vol_window": 72,
+      "max_position_size": 1.0,
+      "target_volatility": 0.2,
+      "initial_capital": 10000.0
+    }
+  }
+}

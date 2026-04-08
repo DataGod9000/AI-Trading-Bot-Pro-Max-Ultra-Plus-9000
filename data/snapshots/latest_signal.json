@@ -1,0 +1,122 @@
+{
+  "signal": {
+    "id": 2,
+    "run_at": "2026-04-06T08:40:22+00:00",
+    "btc_price": 69243.0,
+    "news_score": -0.058673797051111864,
+    "technical_score": 0.44,
+    "final_score": -0.12245647364499992,
+    "action": "HOLD",
+    "confidence": 0.12245647364499992,
+    "reason": "Sentiment roughly neutral (-0.06) Technicals supportive (+0.44) ML bias **bearish** (blended up-prob 0.14, score -0.72 on \u22121\u2026+1). Unified score **-0.122** \u2192 **HOLD**. Strong cross-signal disagreement detected; score dampened \u00d70.7 per policy. Context \u2014 News: 11 articles; aggregate news score -0.059 | Technicals: 1h +0.50 (trend 1, RSI 71.9, MACD +0.50, vol True); 4h +0.40 (trend 1, RSI 69.3).",
+    "breakdown_json": "{\"news_score\": -0.058673797051111864, \"technical_score\": 0.44, \"weights\": {\"news\": 0.3, \"technical\": 0.3, \"ml\": 0.4, \"legacy_news\": 0.6, \"legacy_technical\": 0.4, \"ml_active\": true}, \"ml_score\": -0.7233392009438087, \"conflict_dampened\": true, \"ml\": {\"horizon_predictions\": {\"target_up_1h\": {\"prob_up\": 0.2904965830759811, \"predicted_class\": 0, \"model_name\": \"random_forest\"}, \"target_up_12h\": {\"prob_up\": 0.1854497641324997, \"predicted_class\": 0, \"model_name\": \"xgboost\"}, \"target_up_24h\": {\"prob_up\": 0.015127943149748893, \"predicted_class\": 0, \"model_name\": \"logistic_regression\"}}, \"ml_prob\": 0.13833039952809567, \"ml_score\": -0.7233392009438087, \"ml_bias\": \"bearish\", \"feature_version\": \"1.0\", \"training_run_at\": \"2026-04-06T08:40:17+00:00\"}, \"technical\": {\"1h\": {\"close\": 69242.91902507884, \"ema20\": 68434.27842917423, \"ema50\": 67799.21974494876, \"rsi14\": 71.89587957339248, \"bb_upper\": 70066.56929631764, \"bb_lower\": 66379.87047897914, \"bb_mid\": 68223.21988764839, \"macd\": 546.1991188034881, \"macd_signal\": 471.6652795390701, \"bb_width\": 0.05403876896179697, \"trend_term\": 1, \"rsi_s\": -0.5, \"bb_s\": 0.0, \"macd_s\": 0.5, \"mean_rev_before_vol_dampen\": -0.5, \"mean_rev_after_vol_dampen\": -0.25, \"volatility_high\": true, \"raw_sum\": 1.25, \"normalized_score\": 0.5}, \"4h\": {\"close\": 69085.0, \"ema20\": 67630.06273919599, \"ema50\": 67609.36118357936, \"rsi14\": 69.32503593595455, \"bb_upper\": 68864.8088648124, \"bb_lower\": 65811.39113518762, \"bb_mid\": 67338.1, \"macd\": 334.9199910668103, \"macd_signal\": 80.01673261786131, \"bb_width\": 0.04534457802677503, \"trend_term\": 1, \"rsi_s\": 0.0, \"bb_s\": -0.5, \"macd_s\": 0.5, \"mean_rev_before_vol_dampen\": -0.5, \"mean_rev_after_vol_dampen\": -0.5, \"volatility_high\": false, \"raw_sum\": 1.0, \"normalized_score\": 0.4}}, \"top_headlines\": [\"Bitcoin Price Flashed 3 Bullish Hints in a Week and None Delivered a Breakout\", \"Bitcoin\\u2019s 36% Annualized Return Since August 2020 Shows Why Zooming Out Still Wins\", \"Why Is The Crypto Market Up Today?\"], \"article_count\": 11, \"ml_feature_row\": {\"news_score\": -0.058673797051111864, \"technical_score\": 0.44, \"final_rule_score\": 0.14079572176933292, \"ema_trend_1h\": 1.0, \"ema_trend_4h\": 1.0, \"rsi_1h\": 71.89587957339248, \"rsi_4h\": 69.32503593595455, \"bollinger_position_1h\": 0.7765886740285958, \"bollinger_position_4h\": 1.0, \"bollinger_width_1h\": 0.05403876896179697, \"bollinger_width_4h\": 0.04534457802677503, \"macd_score_1h\": 0.5, \"macd_score_4h\": 0.5, \"return_1h\": 0.0022832001791685905, \"return_4h\": 0.00030406579404610216, \"volume_change_1h\": 0.0, \"volume_change_4h\": 0.0, \"price_close\": 69242.91902507884}}",
+    "breakdown": {
+      "news_score": -0.058673797051111864,
+      "technical_score": 0.44,
+      "weights": {
+        "news": 0.3,
+        "technical": 0.3,
+        "ml": 0.4,
+        "legacy_news": 0.6,
+        "legacy_technical": 0.4,
+        "ml_active": true
+      },
+      "ml_score": -0.7233392009438087,
+      "conflict_dampened": true,
+      "ml": {
+        "horizon_predictions": {
+          "target_up_1h": {
+            "prob_up": 0.2904965830759811,
+            "predicted_class": 0,
+            "model_name": "random_forest"
+          },
+          "target_up_12h": {
+            "prob_up": 0.1854497641324997,
+            "predicted_class": 0,
+            "model_name": "xgboost"
+          },
+          "target_up_24h": {
+            "prob_up": 0.015127943149748893,
+            "predicted_class": 0,
+            "model_name": "logistic_regression"
+          }
+        },
+        "ml_prob": 0.13833039952809567,
+        "ml_score": -0.7233392009438087,
+        "ml_bias": "bearish",
+        "feature_version": "1.0",
+        "training_run_at": "2026-04-06T08:40:17+00:00"
+      },
+      "technical": {
+        "1h": {
+          "close": 69242.91902507884,
+          "ema20": 68434.27842917423,
+          "ema50": 67799.21974494876,
+          "rsi14": 71.89587957339248,
+          "bb_upper": 70066.56929631764,
+          "bb_lower": 66379.87047897914,
+          "bb_mid": 68223.21988764839,
+          "macd": 546.1991188034881,
+          "macd_signal": 471.6652795390701,
+          "bb_width": 0.05403876896179697,
+          "trend_term": 1,
+          "rsi_s": -0.5,
+          "bb_s": 0.0,
+          "macd_s": 0.5,
+          "mean_rev_before_vol_dampen": -0.5,
+          "mean_rev_after_vol_dampen": -0.25,
+          "volatility_high": true,
+          "raw_sum": 1.25,
+          "normalized_score": 0.5
+        },
+        "4h": {
+          "close": 69085.0,
+          "ema20": 67630.06273919599,
+          "ema50": 67609.36118357936,
+          "rsi14": 69.32503593595455,
+          "bb_upper": 68864.8088648124,
+          "bb_lower": 65811.39113518762,
+          "bb_mid": 67338.1,
+          "macd": 334.9199910668103,
+          "macd_signal": 80.01673261786131,
+          "bb_width": 0.04534457802677503,
+          "trend_term": 1,
+          "rsi_s": 0.0,
+          "bb_s": -0.5,
+          "macd_s": 0.5,
+          "mean_rev_before_vol_dampen": -0.5,
+          "mean_rev_after_vol_dampen": -0.5,
+          "volatility_high": false,
+          "raw_sum": 1.0,
+          "normalized_score": 0.4
+        }
+      },
+      "top_headlines": [
+        "Bitcoin Price Flashed 3 Bullish Hints in a Week and None Delivered a Breakout",
+        "Bitcoin\u2019s 36% Annualized Return Since August 2020 Shows Why Zooming Out Still Wins",
+        "Why Is The Crypto Market Up Today?"
+      ],
+      "article_count": 11,
+      "ml_feature_row": {
+        "news_score": -0.058673797051111864,
+        "technical_score": 0.44,
+        "final_rule_score": 0.14079572176933292,
+        "ema_trend_1h": 1.0,
+        "ema_trend_4h": 1.0,
+        "rsi_1h": 71.89587957339248,
+        "rsi_4h": 69.32503593595455,
+        "bollinger_position_1h": 0.7765886740285958,
+        "bollinger_position_4h": 1.0,
+        "bollinger_width_1h": 0.05403876896179697,
+        "bollinger_width_4h": 0.04534457802677503,
+        "macd_score_1h": 0.5,
+        "macd_score_4h": 0.5,
+        "return_1h": 0.0022832001791685905,
+        "return_4h": 0.00030406579404610216,
+        "volume_change_1h": 0.0,
+        "volume_change_4h": 0.0,
+        "price_close": 69242.91902507884
+      }
+    }
+  }
+}

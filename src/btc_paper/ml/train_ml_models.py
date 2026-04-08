@@ -46,6 +46,13 @@ HORIZONS: List[HorizonConfig] = [
     HorizonConfig(name="target_up_24h", steps_ahead=24, min_return=0.01),
 ]
 
+# Deploy-friendly filenames under artifacts/models/
+HORIZON_ARTIFACT_BASENAME: Dict[str, str] = {
+    "target_up_1h": "btc_1h_model.pkl",
+    "target_up_12h": "btc_12h_model.pkl",
+    "target_up_24h": "btc_24h_model.pkl",
+}
+
 
 def load_dataset(csv_path: str | Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
@@ -161,6 +168,8 @@ def train_one_horizon(
     test_df: pd.DataFrame,
     target_col: str,
     models_dir: Path,
+    *,
+    artifact_basename: str | None = None,
 ) -> Dict[str, Any]:
     feature_cols = FEATURE_COLUMNS.copy()
     train_local = train_df.dropna(subset=[target_col]).copy()
@@ -182,7 +191,8 @@ def train_one_horizon(
 
     best_name = max(results, key=lambda k: results[k]["roc_auc"] if np.isfinite(results[k]["roc_auc"]) else -1.0)
     best_model = fitted_models[best_name]
-    artifact_path = models_dir / f"{target_col}_model.joblib"
+    fname = artifact_basename or f"{target_col}_model.joblib"
+    artifact_path = models_dir / fname
     joblib.dump(best_model, artifact_path)
 
     prob_up = best_model.predict_proba(X_test)[:, 1]
@@ -203,11 +213,24 @@ def train_one_horizon(
 
 def train_all_models(
     csv_path: str | Path,
-    output_dir: str | Path = "models",
+    output_dir: str | Path = "artifacts",
     train_ratio: float = 0.8,
 ) -> Dict[str, Any]:
+    """
+    Train 1h / 12h / 24h classifiers and write:
+
+    - artifacts/models/btc_{1h,12h,24h}_model.pkl
+    - artifacts/scalers/scaler.pkl (from 1h winning pipeline, if present)
+    - artifacts/metadata/model_info.json
+    - artifacts/models/model_metadata.json (legacy shape for existing loaders)
+    """
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    models_dir = output_dir / "models"
+    scalers_dir = output_dir / "scalers"
+    meta_dir = output_dir / "metadata"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    scalers_dir.mkdir(parents=True, exist_ok=True)
+    meta_dir.mkdir(parents=True, exist_ok=True)
 
     df = load_dataset(csv_path)
     df = add_targets(df, HORIZONS)
@@ -226,11 +249,53 @@ def train_all_models(
     }
 
     for horizon in HORIZONS:
-        horizon_result = train_one_horizon(train_df, test_df, horizon.name, output_dir)
+        basename = HORIZON_ARTIFACT_BASENAME.get(horizon.name)
+        horizon_result = train_one_horizon(
+            train_df, test_df, horizon.name, models_dir, artifact_basename=basename
+        )
         summary["horizons"][horizon.name] = horizon_result
 
-    metadata_path = output_dir / "model_metadata.json"
+    # Save scaler from 1h best pipeline (each horizon has its own fitted scaler inside joblib).
+    h1 = summary["horizons"].get("target_up_1h") or {}
+    p1 = Path(str(h1.get("artifact_path", "")))
+    if p1.is_file():
+        try:
+            pipe = joblib.load(p1)
+            if hasattr(pipe, "named_steps") and "scaler" in pipe.named_steps:
+                joblib.dump(pipe.named_steps["scaler"], scalers_dir / "scaler.pkl")
+        except OSError:
+            pass
+
+    metadata_path = models_dir / "model_metadata.json"
     metadata_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    t_min = pd.Timestamp(df["timestamp"].min()).isoformat()
+    t_max = pd.Timestamp(df["timestamp"].max()).isoformat()
+    model_info: Dict[str, Any] = {
+        "training_date": summary["trained_at"],
+        "training_period": {"start": t_min, "end": t_max},
+        "features_used": FEATURE_COLUMNS.copy(),
+        "feature_version": FEATURE_VERSION,
+        "model_type": "per_horizon_sklearn_pipeline",
+        "horizons": {
+            h: {
+                "artifact": HORIZON_ARTIFACT_BASENAME.get(h, f"{h}_model.joblib"),
+                "best_model_name": summary["horizons"][h]["best_model_name"],
+                "metrics": summary["horizons"][h]["metrics_by_model"][
+                    summary["horizons"][h]["best_model_name"]
+                ],
+                "artifact_path": summary["horizons"][h]["artifact_path"],
+            }
+            for h in summary["horizons"]
+        },
+        "evaluation_metrics": {
+            h: summary["horizons"][h]["metrics_by_model"][summary["horizons"][h]["best_model_name"]]
+            for h in summary["horizons"]
+        },
+        "dataset_path": str(csv_path),
+        "row_count": int(len(df)),
+    }
+    (meta_dir / "model_info.json").write_text(json.dumps(model_info, indent=2, default=str), encoding="utf-8")
     return summary
 
 
@@ -239,7 +304,11 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Train per-horizon ML models for BTC signals.")
     parser.add_argument("--csv", required=True, help="Path to ml_features.csv")
-    parser.add_argument("--output-dir", default="models", help="Directory for joblib + metadata")
+    parser.add_argument(
+        "--output-dir",
+        default="artifacts",
+        help="Root for models/, scalers/, metadata/ (default: artifacts)",
+    )
     parser.add_argument("--train-ratio", type=float, default=0.8)
     args = parser.parse_args()
 
