@@ -4,6 +4,8 @@
   "scripts": {
     "postinstall": "npm install --prefix web",
     "dev": "npm run dev --prefix web",
-    "dev:web": "npm run dev:web --prefix web"
+    "dev:web": "npm run dev:web --prefix web",
+    "build": "npm run build --prefix web",
+    "start": "npm run start --prefix web"
   }
 }
