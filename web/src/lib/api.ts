@@ -2,25 +2,26 @@ const DEFAULT_SERVER_BASE = "http://127.0.0.1:8000";
 
 /**
  * API URL for fetches.
- * - In the browser, default is same-origin `/api/...` so Next.js can proxy to FastAPI (avoids CORS:
- *   `localhost:3000` vs `127.0.0.1:8000` are different sites).
- * - Set NEXT_PUBLIC_API_URL only when the API is on another host (e.g. production).
+ * - In the **browser**, always same-origin `/api/...` so Next.js rewrites can proxy to FastAPI.
+ *   This avoids CORS when frontend and API are on different hosts (e.g. two Render services).
+ * - Set **API_PROXY_TARGET** or **NEXT_PUBLIC_API_URL** on the frontend at **build** time so
+ *   `next.config.ts` rewrites `/api/*` → your backend (see next.config.ts).
+ * - On the **server** (SSR / RSC), use INTERNAL_API_URL, then proxy envs, then localhost.
  */
 export function apiBase(): string {
-  const explicit =
-    typeof process.env.NEXT_PUBLIC_API_URL === "string" ? process.env.NEXT_PUBLIC_API_URL.trim() : "";
   if (typeof window !== "undefined") {
-    if (explicit.length > 0) {
-      return explicit.replace(/\/$/, "");
-    }
     return "";
   }
   const internal = process.env.INTERNAL_API_URL?.trim();
   if (internal && internal.length > 0) {
     return internal.replace(/\/$/, "");
   }
-  if (explicit.length > 0) {
-    return explicit.replace(/\/$/, "");
+  const proxy =
+    (typeof process.env.API_PROXY_TARGET === "string" && process.env.API_PROXY_TARGET.trim()) ||
+    (typeof process.env.NEXT_PUBLIC_API_URL === "string" && process.env.NEXT_PUBLIC_API_URL.trim()) ||
+    "";
+  if (proxy.length > 0) {
+    return proxy.replace(/\/$/, "");
   }
   return DEFAULT_SERVER_BASE;
 }
@@ -63,8 +64,9 @@ export async function apiGet<T>(path: string, opts?: ApiGetOptions): Promise<T> 
     }
     if (e instanceof TypeError) {
       throw new Error(
-        `Cannot reach API — start the backend: \`btc-paper-api\` (repo root), or check API_PROXY_TARGET / NEXT_PUBLIC_API_URL. ` +
-          `(${e.message})`,
+        `Cannot reach API. Local dev: run btc-paper-api (repo root). Render: on the **frontend** service set ` +
+          `API_PROXY_TARGET (or NEXT_PUBLIC_API_URL) to your FastAPI https URL, then **rebuild** the frontend ` +
+          `(rewrites are baked at build). (${e.message})`,
       );
     }
     throw e;

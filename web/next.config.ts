@@ -4,8 +4,15 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** FastAPI default; override with API_PROXY_TARGET if needed. */
-const apiProxy = (process.env.API_PROXY_TARGET ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+/**
+ * Where Next.js proxies `/api/*` (browser uses same-origin `/api/...` → no CORS).
+ * Set on Render frontend: API_PROXY_TARGET or NEXT_PUBLIC_API_URL = your FastAPI URL (https, no trailing slash).
+ */
+const apiProxy = (
+  process.env.API_PROXY_TARGET?.trim() ||
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  "http://127.0.0.1:8000"
+).replace(/\/$/, "");
 
 const nextConfig: NextConfig = {
   /** Hides the circular Next.js dev-tools button (bottom-left) that overlaps the sidebar. */
