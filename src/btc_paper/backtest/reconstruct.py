@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from btc_paper.sentiment.finbert import aggregate_news_score
 from btc_paper.technical.indicators import analyze_timeframe
 
 
@@ -37,6 +36,9 @@ def reconstruct_news_score_series(
     Uses stored `final_article_score` (impact × recency weighted) from news_articles and applies
     the same aggregation function as production: `aggregate_news_score(scores)`.
     """
+    # Lazy import: finbert.py pulls torch/transformers at module import; avoid that on API startup.
+    from btc_paper.sentiment.finbert import aggregate_news_score
+
     if articles is None or len(articles) == 0:
         return pd.Series(0.0, index=bars_ts.index, name="news_score")
 

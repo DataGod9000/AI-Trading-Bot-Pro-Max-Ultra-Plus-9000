@@ -750,8 +750,13 @@ def backtest_walkforward(
 def main() -> None:
     import uvicorn
 
-    host = os.environ.get("API_HOST", "127.0.0.1")
-    port = int(os.environ.get("API_PORT", "8000"))
+    # Render (and similar) set PORT and require binding 0.0.0.0 for inbound traffic.
+    if os.environ.get("PORT"):
+        host = os.environ.get("API_HOST", "0.0.0.0")
+        port = int(os.environ["PORT"])
+    else:
+        host = os.environ.get("API_HOST", "127.0.0.1")
+        port = int(os.environ.get("API_PORT", "8000"))
     uvicorn.run("btc_paper.api_server:app", host=host, port=port, reload=False)
 
 
