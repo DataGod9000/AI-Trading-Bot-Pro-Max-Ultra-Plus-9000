@@ -65,6 +65,84 @@ def load_latest_signal_snapshot(settings: Settings) -> Dict[str, Any]:
     return dict(_read_json(path))
 
 
+def load_market_snapshot(settings: Settings) -> Dict[str, Any]:
+    root = snapshot_root(settings)
+    for name in ("market_snapshot.json",):
+        p = root / name
+        if p.exists():
+            return dict(_read_json(p))
+    raise FileNotFoundError(f"Missing snapshot file: {root / 'market_snapshot.json'}")
+
+
+def load_price_history(settings: Settings, limit: int = 5000) -> Dict[str, Any]:
+    """
+    `price_history.csv` columns: timestamp, price (and optional benchmark series).
+    """
+    path = snapshot_root(settings) / "price_history.csv"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing snapshot file: {path}")
+    df = pd.read_csv(path)
+    if "timestamp" not in df.columns or "price" not in df.columns:
+        raise ValueError(f"{path} must have columns: timestamp, price")
+    if len(df) > limit:
+        df = df.tail(limit)
+    rows: List[Dict[str, Any]] = []
+    for _, r in df.iterrows():
+        row = {k: (None if pd.isna(r[k]) else r[k]) for k in df.columns}
+        for k, v in list(row.items()):
+            if hasattr(v, "item"):
+                row[k] = v.item()
+        rows.append(row)
+    return {"series": rows}
+
+
+def load_news_snapshot(settings: Settings, limit: int) -> Dict[str, Any]:
+    """
+    Preferred file: news_snapshot.json
+    Fallback: overview_snapshot.news
+    """
+    root = snapshot_root(settings)
+    p = root / "news_snapshot.json"
+    if p.exists():
+        data = dict(_read_json(p))
+        arts = list(data.get("articles") or [])
+        return {"articles": arts[:limit], "analytics": data.get("analytics")}
+    ov = load_overview_snapshot(settings)
+    arts = list(ov.get("news") or [])
+    return {"articles": arts[:limit], "analytics": None}
+
+
+def load_technical_snapshot(settings: Settings) -> Dict[str, Any]:
+    """
+    Snapshot technical payload for /api/technical/live.
+    """
+    root = snapshot_root(settings)
+    p = root / "technical_snapshot.json"
+    if p.exists():
+        return dict(_read_json(p))
+    return {
+        "spot_usd": None,
+        "spot_error": "technical_snapshot.json missing",
+        "spot_source": "snapshot",
+        "series_1h_candles": None,
+        "series_1h_start": None,
+        "series_1h_end": None,
+        "series_4h_candles": None,
+        "series_4h_start": None,
+        "series_4h_end": None,
+        "err_1h": "technical_snapshot.json missing",
+        "err_4h": "technical_snapshot.json missing",
+        "ta_1h": None,
+        "ta_4h": None,
+        "weight_1h": 0.4,
+        "weight_4h": 0.6,
+        "technical_score": None,
+        "blend_explanation": "snapshot mode",
+        "chart_1h": [],
+        "chart_4h": [],
+    }
+
+
 def load_backtest_run_snapshot(settings: Settings) -> Dict[str, Any]:
     root = snapshot_root(settings)
     metrics_path = root / "backtest_metrics.json"
@@ -362,3 +440,30 @@ def settings_public_snapshot(settings: Settings) -> Dict[str, Any]:
         "source": meta.get("source"),
     }
     return base
+
+
+def load_paper_state_snapshot(settings: Settings) -> Dict[str, Any]:
+    """
+    Snapshot-backed /api/paper/state (read-only demo).
+    """
+    latest = load_latest_signal_snapshot(settings).get("signal")
+    sig = latest if isinstance(latest, dict) else None
+    tech = load_technical_snapshot(settings)
+    market: Dict[str, Any] = {}
+    try:
+        market = load_market_snapshot(settings)
+    except FileNotFoundError:
+        market = {}
+    trades = load_trades_snapshot(settings, limit=80)
+    return {
+        "live_price": market.get("price"),
+        "live_price_error": "",
+        "signal_price": float(sig.get("btc_price") or 0.0) if sig else 0.0,
+        "signal": sig,
+        "technical_1h": tech.get("ta_1h"),
+        "technical_4h": tech.get("ta_4h"),
+        "open_trade": trades.get("open_trade"),
+        "closed_trades": trades.get("closed") or [],
+        "performance": trades.get("performance") or {},
+        "settings": settings_public_snapshot(settings),
+    }

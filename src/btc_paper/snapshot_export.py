@@ -167,6 +167,95 @@ def _export_ml_snapshots(root: Any, settings: Any) -> None:
     _write_json(root / "ml_latest.json", latest)
 
 
+def _export_market_and_price_history(root: Any, settings: Any) -> None:
+    """
+    market_snapshot.json and price_history.csv for snapshot-first deployment.
+    """
+    # Price history from local candles (preferred) to avoid external calls in deployed mode.
+    with db.connect(settings) as conn:
+        candles = db.fetch_candles_all(conn, timeframe="1h")
+    if candles:
+        df = pd.DataFrame([dict(r) for r in candles])
+        # candles.ts is unix seconds
+        df["timestamp"] = pd.to_datetime(df["ts"], unit="s", utc=True).astype(str)
+        df["price"] = df["close"].astype(float)
+        df[["timestamp", "price"]].to_csv(root / "price_history.csv", index=False)
+
+        # Change % over last 24h of 1h bars (approx).
+        last = float(df["price"].iloc[-1])
+        prev = float(df["price"].iloc[-25]) if len(df) > 25 else float(df["price"].iloc[0])
+        chg = ((last / prev) - 1.0) if prev else 0.0
+        _write_json(
+            root / "market_snapshot.json",
+            {
+                "price": last,
+                "change_pct_24h": chg,
+                "asof": str(df["timestamp"].iloc[-1]),
+                "source": "sqlite:candles(1h)",
+            },
+        )
+    else:
+        pd.DataFrame(columns=["timestamp", "price"]).to_csv(root / "price_history.csv", index=False)
+        _write_json(
+            root / "market_snapshot.json",
+            {"price": None, "change_pct_24h": None, "asof": None, "source": "missing_candles"},
+        )
+
+
+def _export_news_snapshot(root: Any, settings: Any) -> None:
+    with db.connect(settings) as conn:
+        rows = db.fetch_recent_news(conn, 200)
+        summary = db.aggregate_news_sentiment_stats(conn)
+        series = db.fetch_news_daily_aggregates(conn, max_days=90)
+    _write_json(
+        root / "news_snapshot.json",
+        {
+            "articles": [_row_to_dict(r) for r in rows],
+            "analytics": {
+                "summary": {
+                    **summary,
+                    "finbert_model": settings.finbert_model,
+                },
+                "series": series,
+            },
+        },
+    )
+
+
+def _export_technical_snapshot(root: Any, settings: Any) -> None:
+    """
+    Compute technical snapshot locally (may call CoinGecko). Deployed app reads this file only.
+    """
+    from btc_paper.technical.live_analysis import compute_live_technical_with_dataframes
+    from btc_paper.api_server import _df_ohlc_tail, _ta_to_dict
+
+    report, df_1h, df_4h = compute_live_technical_with_dataframes(settings)
+    _write_json(
+        root / "technical_snapshot.json",
+        {
+            "spot_usd": report.spot_usd,
+            "spot_error": report.spot_error,
+            "spot_source": report.spot_source,
+            "series_1h_candles": report.series_1h_candles,
+            "series_1h_start": report.series_1h_start,
+            "series_1h_end": report.series_1h_end,
+            "series_4h_candles": report.series_4h_candles,
+            "series_4h_start": report.series_4h_start,
+            "series_4h_end": report.series_4h_end,
+            "err_1h": report.err_1h,
+            "err_4h": report.err_4h,
+            "ta_1h": _ta_to_dict(report.ta_1h),
+            "ta_4h": _ta_to_dict(report.ta_4h),
+            "weight_1h": report.weight_1h,
+            "weight_4h": report.weight_4h,
+            "technical_score": report.technical_score,
+            "blend_explanation": report.blend_explanation,
+            "chart_1h": _df_ohlc_tail(df_1h, 200),
+            "chart_4h": _df_ohlc_tail(df_4h, 200),
+        },
+    )
+
+
 def _trade_export_row(r: Dict[str, Any]) -> Dict[str, Any]:
     d = dict(r)
     out = {
@@ -354,6 +443,17 @@ def run_export(*, fetch_live_price: bool = True) -> None:
     _write_json(root / "market_analysis.json", market_payload)
 
     _export_ml_snapshots(root, settings)
+    _export_market_and_price_history(root, settings)
+    _export_news_snapshot(root, settings)
+    # Technical snapshot is allowed to call external APIs, but only during local export.
+    if fetch_live_price:
+        try:
+            _export_technical_snapshot(root, settings)
+        except Exception as exc:  # noqa: BLE001
+            _write_json(
+                root / "technical_snapshot.json",
+                {"spot_usd": None, "spot_error": str(exc), "spot_source": "export_error", "chart_1h": [], "chart_4h": []},
+            )
 
     data_range = "unknown"
     if df is not None and len(df) and "timestamp" in df.columns:

@@ -186,6 +186,15 @@ def settings_public() -> dict[str, Any]:
 @app.get("/api/price/live")
 def price_live() -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            market = snap.load_market_snapshot(settings)
+            p = market.get("price")
+            return {"price": p, "error": None}
+        except FileNotFoundError as exc:
+            return {"price": None, "error": str(exc)}
+        except (OSError, json.JSONDecodeError) as exc:
+            return {"price": None, "error": f"Snapshot market failed: {exc}"}
     try:
         p = fetch_spot_price_usd(settings)
         return {"price": p, "error": None}
@@ -226,6 +235,14 @@ def overview() -> dict[str, Any]:
 @app.get("/api/news")
 def api_news(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            data = snap.load_news_snapshot(settings, limit)
+            return {"articles": data.get("articles") or []}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot news failed: {exc}") from exc
     with db.connect(settings) as conn:
         rows = db.fetch_recent_news(conn, limit)
     return {"articles": [_row_to_dict(r) for r in rows]}
@@ -235,6 +252,27 @@ def api_news(limit: int = Query(50, ge=1, le=500)) -> dict[str, Any]:
 def news_analytics(max_days: int = Query(90, ge=7, le=365)) -> dict[str, Any]:
     """FinBERT / sentiment summary plus daily aggregates for charts."""
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            data = snap.load_news_snapshot(settings, limit=500)
+            analytics = data.get("analytics") or {}
+            # Ensure stable shape for the frontend.
+            return {
+                "summary": analytics.get("summary")
+                or {
+                    "articles_scored": 0,
+                    "avg_finbert_sentiment_score": None,
+                    "avg_weighted_article_score": None,
+                    "avg_confidence": None,
+                    "label_counts": {"bullish": 0, "bearish": 0, "neutral": 0},
+                    "finbert_model": settings.finbert_model,
+                },
+                "series": analytics.get("series") or [],
+            }
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot news analytics failed: {exc}") from exc
     with db.connect(settings) as conn:
         summary = db.aggregate_news_sentiment_stats(conn)
         series = db.fetch_news_daily_aggregates(conn, max_days=max_days)
@@ -257,6 +295,11 @@ def news_sync() -> dict[str, Any]:
     from btc_paper.sentiment.finbert import FinBERTSentiment
 
     settings = load_settings()
+    if settings.snapshot_mode:
+        raise HTTPException(
+            status_code=503,
+            detail="News sync is disabled in SNAPSHOT_MODE. Refresh snapshots locally and redeploy.",
+        )
     try:
         engine = FinBERTSentiment(settings)
         ingest = sync_yahoo_news_to_db(settings, sentiment_engine=engine)
@@ -309,6 +352,13 @@ def api_trades(limit: int = Query(5000, ge=1, le=50_000)) -> dict[str, Any]:
 @app.get("/api/paper/state")
 def paper_state() -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_paper_state_snapshot(settings)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot paper state failed: {exc}") from exc
     live_px: Optional[float] = None
     live_err = ""
     try:
@@ -346,6 +396,11 @@ class PaperOrderBody(BaseModel):
 @app.post("/api/paper/order")
 def paper_order(body: PaperOrderBody) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        raise HTTPException(
+            status_code=503,
+            detail="Paper trading is read-only in SNAPSHOT_MODE.",
+        )
     px = body.price if body.price and body.price > 0 else None
     if px is None:
         px = _resolve_price(settings, None)
@@ -369,6 +424,11 @@ class PriceBody(BaseModel):
 @app.post("/api/paper/check-exit")
 def paper_check_exit(body: Optional[PriceBody] = Body(default=None)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        raise HTTPException(
+            status_code=503,
+            detail="Paper trading is read-only in SNAPSHOT_MODE.",
+        )
     raw = body.price if body and body.price and body.price > 0 else None
     px = _resolve_price(settings, raw)
     now = datetime.now(timezone.utc)
@@ -501,6 +561,11 @@ def ml_summary(hist_n: int = Query(45, ge=5, le=200)) -> dict[str, Any]:
 @app.get("/api/technical/live")
 def technical_live(chart_points: int = Query(200, ge=20, le=500)) -> dict[str, Any]:
     settings = load_settings()
+    if settings.snapshot_mode:
+        try:
+            return snap.load_technical_snapshot(settings)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=503, detail=f"Snapshot technical failed: {exc}") from exc
     report, df_1h, df_4h = compute_live_technical_with_dataframes(settings)
     return {
         "spot_usd": report.spot_usd,

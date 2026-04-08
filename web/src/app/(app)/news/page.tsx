@@ -17,6 +17,10 @@ import { apiGet, apiPost } from "@/lib/api";
 
 type Article = Record<string, unknown>;
 
+type PublicSettingsResp = {
+  demo_snapshot?: { enabled?: boolean };
+};
+
 type SyncResult = {
   ok: boolean;
   raw_article_count: number;
@@ -142,6 +146,7 @@ export default function NewsPage() {
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [syncErr, setSyncErr] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [snapshotOn, setSnapshotOn] = useState(false);
 
   const loadArticles = useCallback(() => {
     setErr(null);
@@ -170,11 +175,15 @@ export default function NewsPage() {
   }, []);
 
   useEffect(() => {
+    apiGet<PublicSettingsResp>("/api/settings/public")
+      .then((s) => setSnapshotOn(Boolean(s.demo_snapshot?.enabled)))
+      .catch(() => setSnapshotOn(false));
     void loadArticles();
     void loadAnalytics();
   }, [loadArticles, loadAnalytics]);
 
   const onRefresh = async () => {
+    if (snapshotOn) return;
     setSyncMsg(null);
     setSyncErr(null);
     setSyncing(true);
@@ -219,10 +228,15 @@ export default function NewsPage() {
             label="Refresh Yahoo + FinBERT"
             expandedWidth={300}
             pending={syncing}
-            disabled={syncing}
+            disabled={syncing || snapshotOn}
             onClick={() => void onRefresh()}
           />
         </div>
+        {snapshotOn ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Snapshot mode: this page is read-only. Refresh data locally, export snapshots, and redeploy.
+          </p>
+        ) : null}
         {syncMsg ? (
           <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">{syncMsg}</p>
         ) : null}
